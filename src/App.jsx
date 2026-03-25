@@ -47,7 +47,10 @@ function FretboardChart({ title, subtitle, frets, rows, compact = false }) {
           </div>
 
           {rows.map((row, rowIndex) => (
-            <div className="string-row" key={`${title}-${row.label}-${rowIndex}`}>
+            <div
+              className={`string-row${rowIndex === 0 ? ' is-first' : ''}${rowIndex === rows.length - 1 ? ' is-last' : ''}`}
+              key={`${title}-${row.label}-${rowIndex}`}
+            >
               <div className="string-label">{row.label}</div>
               {frets.map((fret) => {
                 const note = row.notes[fret]

@@ -272,7 +272,7 @@
   left: 48px;
   right: 0;
   top: 50%;
-  border-top: 1px solid rgba(68, 51, 33, 0.28);
+  border-top: 1.5px solid rgba(68, 51, 33, 0.48);
   pointer-events: none;
 }
 
@@ -281,13 +281,12 @@
   position: relative;
 }
 
-.fret-cell::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-top: 1px solid var(--grid-line);
-  border-bottom: 1px solid var(--grid-line);
-  pointer-events: none;
+.string-row.is-first .fret-cell {
+  border-top: 1px solid rgba(68, 51, 33, 0.18);
+}
+
+.string-row.is-last .fret-cell {
+  border-bottom: 1px solid rgba(68, 51, 33, 0.18);
 }
 
 .fret-cell.is-nut::after {

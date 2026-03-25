@@ -235,6 +235,7 @@
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 700;
+  margin-bottom: 10px;
 }
 
 .corner-cell,
@@ -277,8 +278,9 @@
 }
 
 .fret-cell {
-  min-height: 56px;
+  min-height: 48px;
   position: relative;
+  background: rgba(214, 188, 149, 0.22);
 }
 
 .string-row.is-first .fret-cell {
@@ -381,7 +383,7 @@
   }
 
   .fret-cell {
-    min-height: 48px;
+    min-height: 42px;
   }
 
   .legend-chip,

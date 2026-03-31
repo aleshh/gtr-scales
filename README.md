@@ -1,16 +1,31 @@
-# React + Vite
+# gtr-scales
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Guitar scale fingering chart generator for exploring modes, symmetric scales, bebop scales, and other scale families across the fretboard.
 
-Currently, two official plugins are available:
+Live site: [gtr-scales.alesh.com](https://gtr-scales.alesh.com)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## What This Is
 
-## React Compiler
+`gtr-scales` is a small React app for generating guitar scale charts from a selected root note and scale type. It is designed as a practical reference and practice tool rather than a theory encyclopedia.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## How It Was Built
 
-## Expanding the ESLint configuration
+This app was built in Codex from a lightweight prompt and a series of small visual and UX adjustments. The initial direction was essentially:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- Build a React/Vite app for guitar scale fingering charts
+- Let the user choose the root note and mode/scale
+- Label each note with its scale degree
+- Include extra scale families and short usage descriptions
+
+From there, the project was shaped through iterative feedback on layout, spacing, palette, typography, defaults, and chart clarity.
+
+Technically, the project is built with:
+
+- [React](https://react.dev/) for the UI
+- [Vite](https://vite.dev/) for development and bundling
+- Plain CSS for layout, styling, and fretboard rendering
+- A small local scale/fretboard data model for generating note positions and practice windows
+
+There are no heavy music-theory or visualization dependencies. The scale charts are generated from local pitch-class and interval data in the app itself.
+
+Typography uses IBM Plex Sans and IBM Plex Serif from Google Fonts.

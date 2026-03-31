@@ -1,19 +1,19 @@
 :root {
-  --bg: #eadcc7;
-  --panel: rgba(246, 236, 219, 0.76);
-  --paper: rgba(255, 250, 241, 0.92);
-  --ink: #241a11;
-  --muted: #6f5d4b;
-  --line: #443321;
-  --grid-line: rgba(84, 63, 36, 0.32);
-  --panel-line: rgba(84, 63, 36, 0.16);
-  --accent: #b24d2e;
-  --accent-deep: #7d3118;
-  --degree-fill: #244c4a;
-  --degree-outline: rgba(36, 76, 74, 0.48);
-  --shadow: 0 22px 60px rgba(79, 58, 32, 0.12);
-  --body-font: 'Avenir Next', 'Trebuchet MS', 'Segoe UI', sans-serif;
-  --display-font: 'Iowan Old Style', 'Palatino Linotype', 'Book Antiqua', Georgia, serif;
+  --bg: #d3efd6;
+  --panel: rgba(232, 245, 231, 0.8);
+  --paper: rgba(247, 252, 246, 0.94);
+  --ink: #193126;
+  --muted: #587061;
+  --line: #2d4d3d;
+  --grid-line: rgba(55, 90, 71, 0.28);
+  --panel-line: rgba(55, 90, 71, 0.15);
+  --accent: #4d8b67;
+  --accent-deep: #2f6146;
+  --degree-fill: #285347;
+  --degree-outline: rgba(40, 83, 71, 0.38);
+  --shadow: 0 22px 60px rgba(44, 77, 56, 0.12);
+  --body-font: 'IBM Plex Sans', 'Segoe UI', sans-serif;
+  --display-font: 'IBM Plex Serif', Georgia, serif;
 
   font-family: var(--body-font);
   line-height: 1.5;
@@ -21,8 +21,9 @@
   color: var(--ink);
   background:
     radial-gradient(circle at top left, rgba(255, 255, 255, 0.45), transparent 28%),
-    radial-gradient(circle at top right, rgba(178, 77, 46, 0.14), transparent 22%),
-    linear-gradient(180deg, #f3e7d4 0%, #e5d4bc 100%);
+    radial-gradient(circle at top right, rgba(77, 139, 103, 0.16), transparent 24%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 100%),
+    var(--bg);
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -81,6 +82,6 @@ textarea {
 }
 
 select:focus-visible {
-  outline: 2px solid rgba(178, 77, 46, 0.66);
+  outline: 2px solid rgba(77, 139, 103, 0.66);
   outline-offset: 2px;
 }

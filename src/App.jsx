@@ -99,8 +99,8 @@ function FretboardChart({ title, subtitle, frets, rows, compact = false }) {
 }
 
 function App() {
-  const [rootLabel, setRootLabel] = useState('D')
-  const [scaleId, setScaleId] = useState('harmonic-minor')
+  const [rootLabel, setRootLabel] = useState('E')
+  const [scaleId, setScaleId] = useState('phrygian')
 
   const groupedScales = groupScalesByFamily()
   const root = ROOT_OPTIONS.find((option) => option.label === rootLabel) ?? ROOT_OPTIONS[0]
@@ -113,29 +113,13 @@ function App() {
 
   return (
     <main className="app-shell">
-      <section className="hero-panel">
-        <div className="hero-copy">
-          <p className="eyebrow">Guitar scale generator</p>
-          <h1>{root.label} {scale.name}</h1>
-          <p className="hero-text">
-            Generate degree-labeled fretboard charts and practice positions for common
-            modes, bebop scales, symmetric sounds, and more unusual harmonic colors.
-          </p>
-        </div>
-
-        <div className="hero-summary">
-          <div className="summary-chip">
-            <span>Formula</span>
-            <strong>{scaleFormula}</strong>
-          </div>
-          <div className="summary-chip">
-            <span>Pitch collection</span>
-            <strong>{spelledNotes.join('  ')}</strong>
-          </div>
-        </div>
-      </section>
-
       <section className="control-panel">
+        <p className="eyebrow control-eyebrow">Guitar scale fingering chart generator</p>
+        <p className="control-intro">
+          Generate degree-labeled fretboard charts and practice positions for common
+          modes, bebop scales, symmetric sounds, and more unusual harmonic colors.
+        </p>
+
         <label className="control-field">
           <span>Root note</span>
           <select value={root.label} onChange={(event) => setRootLabel(event.target.value)}>
@@ -161,38 +145,34 @@ function App() {
             ))}
           </select>
         </label>
-
-        <div className="control-note">
-          <span className="control-note-label">Chart logic</span>
-          <p>
-            Notes are labeled by scale degree. The smaller charts use root-centered
-            5-fret windows so they read like practice positions instead of one giant map.
-          </p>
-        </div>
       </section>
 
-      <section className="info-grid">
-        <article className="info-card">
-          <p className="info-label">How it sounds</p>
-          <p className="info-value">{scale.sound}</p>
-        </article>
+      <section className="hero-panel">
+        <div className="hero-copy">
+          <h1>{root.label} {scale.name}</h1>
+          <div className="hero-meta">
+            <div className="hero-meta-block">
+              <p className="info-label">How it sounds</p>
+              <p className="info-value">{scale.sound}</p>
+            </div>
 
-        <article className="info-card">
-          <p className="info-label">How to use it</p>
-          <p className="info-value">{scale.usage}</p>
-        </article>
+            <div className="hero-meta-block">
+              <p className="info-label">How to use it</p>
+              <p className="info-value">{scale.usage}</p>
+            </div>
+          </div>
+        </div>
 
-        <article className="info-card legend-card">
-          <p className="info-label">Legend</p>
-          <div className="legend-row">
-            <span className="legend-chip is-root">1</span>
-            <p>Root note</p>
+        <div className="hero-summary">
+          <div className="summary-chip">
+            <span>Formula</span>
+            <strong>{scaleFormula}</strong>
           </div>
-          <div className="legend-row">
-            <span className="legend-chip">b3</span>
-            <p>Other scale degrees</p>
+          <div className="summary-chip">
+            <span>Pitch collection</span>
+            <strong>{spelledNotes.join('  ')}</strong>
           </div>
-        </article>
+        </div>
       </section>
 
       <section className="chart-section">
@@ -239,6 +219,11 @@ function App() {
           )}
         </div>
       </section>
+
+      <footer className="app-footer">
+        Made with 🍕 by <a href="https://alesh.com/">Alesh</a>.{' '}
+        <a href="https://github.com/aleshh/gtr-scales">GitHub</a>.
+      </footer>
     </main>
   )
 }

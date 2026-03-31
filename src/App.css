@@ -4,56 +4,36 @@
   padding: 40px 24px 64px;
 }
 
-.hero-panel,
-.control-panel,
-.info-card,
 .chart-card {
   border: 1px solid var(--panel-line);
   box-shadow: var(--shadow);
 }
 
 .hero-panel {
-  position: relative;
-  overflow: hidden;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(55, 90, 71, 0.18);
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
   gap: 24px;
-  padding: 32px;
-  border-radius: 28px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.74), rgba(255, 248, 236, 0.94)),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0,
-      transparent 94px,
-      rgba(84, 63, 36, 0.08) 94px,
-      rgba(84, 63, 36, 0.08) 96px
-    ),
-    var(--panel);
-}
-
-.hero-panel::after {
-  content: '';
-  position: absolute;
-  inset: auto -10% -30% auto;
-  width: 340px;
-  aspect-ratio: 1;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(178, 77, 46, 0.18), rgba(178, 77, 46, 0));
-  pointer-events: none;
 }
 
 .hero-copy h1 {
   margin: 0;
-  font-size: clamp(2.6rem, 5vw, 4.6rem);
+  font-size: clamp(2rem, 4vw, 3.2rem);
   line-height: 0.96;
 }
 
-.hero-text {
-  max-width: 38rem;
-  margin-top: 14px;
-  font-size: 1.05rem;
-  color: var(--muted);
+.hero-meta {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.hero-meta-block {
+  padding-top: 14px;
+  border-top: 1px solid rgba(55, 90, 71, 0.14);
 }
 
 .eyebrow {
@@ -68,20 +48,19 @@
 .hero-summary {
   display: grid;
   gap: 14px;
-  align-content: end;
+  align-content: start;
 }
 
 .summary-chip {
   padding: 18px 20px;
-  border-radius: 20px;
-  background: rgba(255, 251, 245, 0.86);
-  border: 1px solid rgba(84, 63, 36, 0.12);
+  border-radius: 8px;
+  background: rgba(247, 252, 246, 0.88);
+  border: 1px solid rgba(55, 90, 71, 0.12);
   backdrop-filter: blur(8px);
 }
 
 .summary-chip span,
 .control-field span,
-.control-note-label,
 .info-label {
   display: block;
   margin-bottom: 8px;
@@ -99,71 +78,37 @@
 }
 
 .control-panel {
-  margin-top: 24px;
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  padding: 20px;
-  border-radius: 24px;
-  background: rgba(255, 248, 237, 0.82);
-  backdrop-filter: blur(8px);
 }
 
-.control-field,
-.control-note {
-  padding: 16px 18px;
-  border-radius: 18px;
-  background: rgba(255, 253, 248, 0.82);
-  border: 1px solid rgba(84, 63, 36, 0.1);
+.control-eyebrow {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+
+.control-intro {
+  grid-column: 1 / -1;
+  width: 100%;
+  color: var(--muted);
+}
+
+.control-field {
+  display: grid;
+  gap: 8px;
 }
 
 .control-field select {
   width: 100%;
-  padding: 12px 14px;
-  border-radius: 14px;
+  padding: 13px 14px;
+  border-radius: 8px;
   border: 1px solid var(--panel-line);
-  background: #fffdf8;
+  background: rgba(248, 252, 247, 0.94);
   color: var(--ink);
   font-size: 1rem;
 }
 
-.control-note p {
-  margin: 0;
-  color: var(--muted);
-}
-
-.info-grid {
-  margin-top: 24px;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.info-card {
-  min-height: 100%;
-  padding: 22px;
-  border-radius: 22px;
-  background: rgba(255, 252, 246, 0.88);
-}
-
-.legend-card {
-  display: grid;
-  gap: 10px;
-  align-content: start;
-}
-
-.legend-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.legend-row p {
-  margin: 0;
-  color: var(--muted);
-}
-
-.legend-chip,
 .degree-chip {
   display: inline-flex;
   align-items: center;
@@ -174,11 +119,10 @@
   font-size: 0.82rem;
   font-weight: 800;
   border: 1.5px solid var(--degree-outline);
-  background: rgba(255, 251, 245, 0.95);
+  background: rgba(247, 252, 246, 0.95);
   color: var(--degree-fill);
 }
 
-.legend-chip.is-root,
 .degree-chip.is-root {
   border-color: var(--accent-deep);
   background: var(--accent);
@@ -192,9 +136,9 @@
 
 .chart-card {
   padding: 20px;
-  border-radius: 26px;
+  border-radius: 8px;
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.72), rgba(255, 248, 237, 0.96)),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(241, 249, 239, 0.96)),
     var(--paper);
 }
 
@@ -273,22 +217,22 @@
   left: 48px;
   right: 0;
   top: 50%;
-  border-top: 1.5px solid rgba(68, 51, 33, 0.48);
+  border-top: 1.5px solid rgba(45, 77, 61, 0.5);
   pointer-events: none;
 }
 
 .fret-cell {
   min-height: 48px;
   position: relative;
-  background: rgba(214, 188, 149, 0.22);
+  background: rgba(194, 221, 197, 0.34);
 }
 
 .string-row.is-first .fret-cell {
-  border-top: 1px solid rgba(68, 51, 33, 0.18);
+  border-top: 1px solid rgba(45, 77, 61, 0.16);
 }
 
 .string-row.is-last .fret-cell {
-  border-bottom: 1px solid rgba(68, 51, 33, 0.18);
+  border-bottom: 1px solid rgba(45, 77, 61, 0.16);
 }
 
 .fret-cell.is-nut::after {
@@ -296,13 +240,13 @@
   position: absolute;
   inset: 0 auto 0 0;
   width: 4px;
-  background: rgba(68, 51, 33, 0.88);
+  background: rgba(45, 77, 61, 0.88);
 }
 
 .degree-chip {
   position: relative;
   z-index: 1;
-  box-shadow: 0 8px 20px rgba(68, 51, 33, 0.16);
+  box-shadow: 0 8px 20px rgba(45, 77, 61, 0.14);
 }
 
 .inlay-row {
@@ -321,8 +265,8 @@
 .inlay-marker span {
   width: 7px;
   height: 7px;
-  border-radius: 999px;
-  background: rgba(68, 51, 33, 0.72);
+  border-radius: 8px;
+  background: rgba(45, 77, 61, 0.68);
 }
 
 .section-heading {
@@ -339,11 +283,28 @@
   gap: 16px;
 }
 
+.app-footer {
+  margin-top: 36px;
+  padding: 8px 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.app-footer a {
+  color: var(--accent-deep);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.15em;
+}
+
 @media (max-width: 980px) {
   .hero-panel,
   .control-panel,
-  .info-grid,
   .section-heading {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-meta {
     grid-template-columns: 1fr;
   }
 
@@ -360,14 +321,10 @@
 
   .hero-panel,
   .control-panel,
-  .info-card,
   .chart-card {
-    border-radius: 20px;
+    border-radius: 8px;
   }
 
-  .hero-panel,
-  .control-panel,
-  .info-card,
   .chart-card {
     padding-inline: 16px;
   }
@@ -386,7 +343,6 @@
     min-height: 42px;
   }
 
-  .legend-chip,
   .degree-chip {
     width: 30px;
     height: 30px;

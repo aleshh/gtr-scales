@@ -4,7 +4,7 @@ import {
   ROOT_OPTIONS,
   SCALE_LIBRARY,
   getScaleFormula,
-  getScaleSpellings,
+  getPitchCollectionLabels,
 } from './data/scales'
 import {
   MAX_FRET,
@@ -105,11 +105,11 @@ function App() {
   const groupedScales = groupScalesByFamily()
   const root = ROOT_OPTIONS.find((option) => option.label === rootLabel) ?? ROOT_OPTIONS[0]
   const scale = SCALE_LIBRARY.find((item) => item.id === scaleId) ?? SCALE_LIBRARY[0]
-  const rows = buildFretboardRows(root.pitchClass, scale.intervals, MAX_FRET)
+  const rows = buildFretboardRows(root.pitchClass, scale, MAX_FRET)
   const fullNeckFrets = getVisibleFrets(0, MAX_FRET + 1, MAX_FRET)
   const positionWindows = buildPositionWindows(rows, root.pitchClass)
-  const scaleFormula = getScaleFormula(scale.intervals)
-  const spelledNotes = getScaleSpellings(root.pitchClass, scale.intervals)
+  const scaleFormula = getScaleFormula(scale)
+  const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
 
   return (
     <main className="app-shell">
@@ -118,6 +118,7 @@ function App() {
         <p className="control-intro">
           Generate degree-labeled fretboard charts and practice positions for common
           modes, bebop scales, symmetric sounds, and more unusual harmonic colors.
+          Built for practical fretboard reference, not perfectly key-spelled notation.
         </p>
 
         <label className="control-field">
@@ -170,7 +171,7 @@ function App() {
           </div>
           <div className="summary-chip">
             <span>Pitch collection</span>
-            <strong>{spelledNotes.join('  ')}</strong>
+            <strong>{pitchCollection.join('  ')}</strong>
           </div>
         </div>
       </section>

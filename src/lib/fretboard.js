@@ -22,8 +22,8 @@ export function getVisibleFrets(startFret, span = POSITION_SPAN, maxFret = MAX_F
   return Array.from({ length: endFret - startFret + 1 }, (_, index) => startFret + index)
 }
 
-export function buildFretboardRows(rootPitchClass, intervals, maxFret = MAX_FRET) {
-  const scaleIntervals = new Set(intervals)
+export function buildFretboardRows(rootPitchClass, scale, maxFret = MAX_FRET) {
+  const scaleIntervals = new Set(scale.intervals)
 
   return STRING_SET.map((string) => {
     const notes = {}
@@ -37,7 +37,7 @@ export function buildFretboardRows(rootPitchClass, intervals, maxFret = MAX_FRET
       }
 
       notes[fret] = {
-        degree: getDegreeLabel(interval),
+        degree: getDegreeLabel(interval, scale),
         noteLabel: getPitchClassLabel(pitchClass),
         interval,
         isRoot: interval === 0,

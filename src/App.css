@@ -175,6 +175,12 @@
   grid-template-columns: 48px repeat(var(--fret-count), minmax(52px, 1fr));
 }
 
+.fretboard-grid.has-open .fret-label-row,
+.fretboard-grid.has-open .string-row,
+.fretboard-grid.has-open .inlay-row {
+  grid-template-columns: 48px 48px repeat(var(--fret-count), minmax(52px, 1fr));
+}
+
 .fret-label-row {
   color: var(--muted);
   font-size: 0.82rem;
@@ -183,9 +189,12 @@
 }
 
 .corner-cell,
+.open-fret-number,
 .fret-number,
 .string-label,
+.open-string-cell,
 .fret-cell,
+.open-inlay-cell,
 .inlay-cell {
   display: flex;
   align-items: center;
@@ -196,6 +205,16 @@
 .fret-cell,
 .inlay-cell {
   border-right: 1px solid var(--grid-line);
+}
+
+.open-string-cell {
+  min-height: 48px;
+  position: relative;
+  border-right: 4px solid rgba(45, 77, 61, 0.88);
+}
+
+.open-inlay-cell {
+  min-height: 18px;
 }
 
 .string-label {
@@ -221,6 +240,10 @@
   pointer-events: none;
 }
 
+.fretboard-grid.has-open .string-row::before {
+  left: 96px;
+}
+
 .fret-cell {
   min-height: 48px;
   position: relative;
@@ -233,14 +256,6 @@
 
 .string-row.is-last .fret-cell {
   border-bottom: 1px solid rgba(45, 77, 61, 0.16);
-}
-
-.fret-cell.is-nut::after {
-  content: '';
-  position: absolute;
-  inset: 0 auto 0 0;
-  width: 4px;
-  background: rgba(45, 77, 61, 0.88);
 }
 
 .degree-chip {
@@ -335,11 +350,29 @@
     grid-template-columns: 36px repeat(var(--fret-count), minmax(44px, 1fr));
   }
 
+  .fretboard-grid.has-open .fret-label-row,
+  .fretboard-grid.has-open .string-row,
+  .fretboard-grid.has-open .inlay-row {
+    grid-template-columns: 36px 40px repeat(var(--fret-count), minmax(44px, 1fr));
+  }
+
   .fretboard-grid {
     min-width: calc(36px + var(--fret-count) * 44px);
   }
 
+  .fretboard-grid.has-open {
+    min-width: calc(76px + var(--fret-count) * 44px);
+  }
+
+  .fretboard-grid.has-open .string-row::before {
+    left: 76px;
+  }
+
   .fret-cell {
+    min-height: 42px;
+  }
+
+  .open-string-cell {
     min-height: 42px;
   }
 

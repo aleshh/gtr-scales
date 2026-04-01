@@ -26,6 +26,9 @@ function groupScalesByFamily() {
 }
 
 function FretboardChart({ title, subtitle, frets, rows, compact = false }) {
+  const hasOpenStrings = frets.includes(0)
+  const fretColumns = hasOpenStrings ? frets.filter((fret) => fret !== 0) : frets
+
   return (
     <article className={`chart-card${compact ? ' is-compact' : ''}`}>
       <div className="chart-heading">
@@ -36,10 +39,14 @@ function FretboardChart({ title, subtitle, frets, rows, compact = false }) {
       </div>
 
       <div className="chart-scroll">
-        <div className="fretboard-grid" style={{ '--fret-count': frets.length }}>
+        <div
+          className={`fretboard-grid${hasOpenStrings ? ' has-open' : ''}`}
+          style={{ '--fret-count': fretColumns.length }}
+        >
           <div className="fret-label-row">
             <div className="corner-cell" aria-hidden="true"></div>
-            {frets.map((fret) => (
+            {hasOpenStrings ? <div className="open-fret-number">0</div> : null}
+            {fretColumns.map((fret) => (
               <div className="fret-number" key={`fret-${fret}`}>
                 {fret}
               </div>
@@ -52,12 +59,25 @@ function FretboardChart({ title, subtitle, frets, rows, compact = false }) {
               key={`${title}-${row.label}-${rowIndex}`}
             >
               <div className="string-label">{row.label}</div>
-              {frets.map((fret) => {
+              {hasOpenStrings ? (
+                <div className="open-string-cell" key={`${title}-${rowIndex}-open`}>
+                  {row.notes[0] ? (
+                    <div
+                      className={`degree-chip${row.notes[0].isRoot ? ' is-root' : ''}`}
+                      title={`${row.notes[0].noteLabel} · degree ${row.notes[0].degree}`}
+                      aria-label={`${row.notes[0].noteLabel}, degree ${row.notes[0].degree}`}
+                    >
+                      {row.notes[0].degree}
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+              {fretColumns.map((fret) => {
                 const note = row.notes[fret]
 
                 return (
                   <div
-                    className={`fret-cell${fret === 0 ? ' is-nut' : ''}`}
+                    className="fret-cell"
                     key={`${title}-${rowIndex}-${fret}`}
                   >
                     {note ? (
@@ -77,7 +97,8 @@ function FretboardChart({ title, subtitle, frets, rows, compact = false }) {
 
           <div className="inlay-row" aria-hidden="true">
             <div className="corner-cell"></div>
-            {frets.map((fret) => {
+            {hasOpenStrings ? <div className="open-inlay-cell"></div> : null}
+            {fretColumns.map((fret) => {
               const markerType = getInlayType(fret)
 
               return (

@@ -79,7 +79,7 @@
 
 .control-panel {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 16px;
 }
 
@@ -97,6 +97,39 @@
 .control-field {
   display: grid;
   gap: 8px;
+}
+
+.mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  align-self: end;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--panel-line);
+  background: rgba(248, 252, 247, 0.94);
+}
+
+.mode-toggle button {
+  min-height: 46px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.mode-toggle button.is-active {
+  background: var(--accent);
+  color: #fff8ee;
+  box-shadow: inset 0 0 0 1px rgba(47, 97, 70, 0.12);
+}
+
+.mode-toggle button:focus-visible {
+  outline: 2px solid rgba(77, 139, 103, 0.66);
+  outline-offset: 2px;
 }
 
 .control-field select {
@@ -130,7 +163,8 @@
 }
 
 .chart-section,
-.positions-section {
+.positions-section,
+.chord-section {
   margin-top: 28px;
 }
 
@@ -146,6 +180,14 @@
   padding: 18px;
 }
 
+.chart-card.is-compact .chart-heading h3 {
+  font-size: 1.15rem;
+}
+
+.chart-card.is-compact .chart-scroll {
+  margin-top: 14px;
+}
+
 .chart-heading h3,
 .section-heading h2 {
   margin: 0;
@@ -158,6 +200,10 @@
   color: var(--muted);
 }
 
+.chart-meta {
+  font-size: 0.9rem;
+}
+
 .chart-scroll {
   margin-top: 18px;
   overflow-x: auto;
@@ -166,6 +212,12 @@
 
 .fretboard-grid {
   min-width: max(100%, calc(56px + var(--fret-count) * 56px));
+}
+
+.fretboard-grid.is-fixed-width {
+  width: fit-content;
+  min-width: 0;
+  margin: 0;
 }
 
 .fret-label-row,
@@ -179,6 +231,18 @@
 .fretboard-grid.has-open .string-row,
 .fretboard-grid.has-open .inlay-row {
   grid-template-columns: 48px 48px repeat(var(--fret-count), minmax(52px, 1fr));
+}
+
+.fretboard-grid.is-fixed-width .fret-label-row,
+.fretboard-grid.is-fixed-width .string-row,
+.fretboard-grid.is-fixed-width .inlay-row {
+  grid-template-columns: 48px repeat(var(--fret-count), 52px);
+}
+
+.fretboard-grid.has-open.is-fixed-width .fret-label-row,
+.fretboard-grid.has-open.is-fixed-width .string-row,
+.fretboard-grid.has-open.is-fixed-width .inlay-row {
+  grid-template-columns: 48px 48px repeat(var(--fret-count), 52px);
 }
 
 .fret-label-row {
@@ -298,6 +362,90 @@
   gap: 16px;
 }
 
+.chord-groups {
+  display: grid;
+  gap: 28px;
+}
+
+.chord-group-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: end;
+  margin-bottom: 14px;
+}
+
+.chord-group-heading p:last-child {
+  max-width: 620px;
+  color: var(--muted);
+}
+
+.chord-row-list {
+  display: grid;
+  gap: 24px;
+}
+
+.chord-row {
+  padding-top: 18px;
+  border-top: 1px solid rgba(55, 90, 71, 0.14);
+  display: grid;
+  gap: 14px;
+}
+
+.chord-row-copy {
+  display: flex;
+  justify-content: space-between;
+  align-items: end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.chord-row-title h3 {
+  margin: 0;
+  font-size: 1.28rem;
+}
+
+.chord-row-title p {
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.chord-row-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mini-tag {
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.14);
+  background: rgba(247, 252, 246, 0.88);
+  color: var(--muted);
+  font-size: 0.82rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.voicing-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.voicing-grid > .chart-card {
+  flex: 0 0 360px;
+  width: 360px;
+  max-width: 100%;
+}
+
+.empty-voicing-card {
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+}
+
 .app-footer {
   margin-top: 36px;
   padding: 8px 0 0;
@@ -314,7 +462,6 @@
 
 @media (max-width: 980px) {
   .hero-panel,
-  .control-panel,
   .section-heading {
     grid-template-columns: 1fr;
   }
@@ -323,6 +470,8 @@
     grid-template-columns: 1fr;
   }
 
+  .chord-group-heading,
+  .chord-row-copy,
   .section-heading {
     display: grid;
     justify-content: stretch;
@@ -335,7 +484,6 @@
   }
 
   .hero-panel,
-  .control-panel,
   .chart-card {
     border-radius: 8px;
   }
@@ -364,6 +512,18 @@
     min-width: calc(76px + var(--fret-count) * 44px);
   }
 
+  .fretboard-grid.is-fixed-width .fret-label-row,
+  .fretboard-grid.is-fixed-width .string-row,
+  .fretboard-grid.is-fixed-width .inlay-row {
+    grid-template-columns: 36px repeat(var(--fret-count), 44px);
+  }
+
+  .fretboard-grid.has-open.is-fixed-width .fret-label-row,
+  .fretboard-grid.has-open.is-fixed-width .string-row,
+  .fretboard-grid.has-open.is-fixed-width .inlay-row {
+    grid-template-columns: 36px 40px repeat(var(--fret-count), 44px);
+  }
+
   .fretboard-grid.has-open .string-row::before {
     left: 76px;
   }
@@ -380,5 +540,10 @@
     width: 30px;
     height: 30px;
     font-size: 0.74rem;
+  }
+
+  .voicing-grid > .chart-card {
+    flex-basis: 100%;
+    width: 100%;
   }
 }

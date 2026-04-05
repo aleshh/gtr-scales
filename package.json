@@ -2,6 +2,7 @@
   "name": "gtr-scales",
   "private": true,
   "version": "0.0.0",
+  "packageManager": "pnpm@8.13.1",
   "type": "module",
   "scripts": {
     "dev": "vite",

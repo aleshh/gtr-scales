@@ -29,3 +29,13 @@ Technically, the project is built with:
 There are no heavy music-theory or visualization dependencies. The scale charts are generated from local pitch-class and interval data in the app itself.
 
 Typography uses IBM Plex Sans and IBM Plex Serif from Google Fonts.
+
+## Development
+
+Install dependencies with `pnpm install`.
+
+Start the dev server with `pnpm dev`.
+
+Create a production build with `pnpm build`.
+
+Run linting with `pnpm lint`.

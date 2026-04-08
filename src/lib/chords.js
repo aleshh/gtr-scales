@@ -85,6 +85,21 @@ function getFrettedRange(frets) {
   }
 }
 
+function compareFretPositions(leftFrets, rightFrets) {
+  const leftRange = getFrettedRange(leftFrets)
+  const rightRange = getFrettedRange(rightFrets)
+
+  if (leftRange.min !== rightRange.min) {
+    return leftRange.min - rightRange.min
+  }
+
+  if (leftRange.max !== rightRange.max) {
+    return leftRange.max - rightRange.max
+  }
+
+  return leftFrets.join(',').localeCompare(rightFrets.join(','))
+}
+
 function isAllowedByPlayability(template, frets, playabilityId) {
   const settings = PLAYABILITY_LIMITS[playabilityId]
   const { min, max } = getFrettedRange(frets)
@@ -239,6 +254,7 @@ function generateVoicings(rootPitchClass, qualityId, playabilityId) {
       return true
     })
     .slice(0, settings.limit)
+    .sort((left, right) => compareFretPositions(left.frets, right.frets))
     .map((candidate) => buildVoicing(rootPitchClass, qualityId, candidate.template, candidate.frets))
 }
 

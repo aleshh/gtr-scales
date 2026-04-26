@@ -181,10 +181,9 @@ function App() {
   const [flavorId, setFlavorId] = useState(() => readQueryState(window.location.search).flavor)
   const [complexityId, setComplexityId] = useState(() => readQueryState(window.location.search).complexity)
   const [arrangementComplexityId, setArrangementComplexityId] = useState(() => readQueryState(window.location.search).arrangementComplexity)
-  const [openChordFingerings, setOpenChordFingerings] = useState(() => new Set())
-  const [chordFingeringViews, setChordFingeringViews] = useState({})
+  const [showArrangementFingerings, setShowArrangementFingerings] = useState(false)
   const [openScaleCharts, setOpenScaleCharts] = useState(() => new Set())
-  const [scaleChartViews, setScaleChartViews] = useState({})
+  const [selectedArrangementChordId, setSelectedArrangementChordId] = useState(null)
 
   const groupedScales = groupItemsByFamily(SCALE_LIBRARY)
   const groupedFlavors = groupItemsByFamily(CHORD_FLAVOR_LIBRARY)
@@ -199,6 +198,7 @@ function App() {
   const scaleFormula = getScaleFormula(scale)
   const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
   const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id, 'full')
+  const selectedArrangementChord = arrangement.rows.find((row) => row.id === selectedArrangementChordId) ?? arrangement.rows[0]
   const selectedTheoryItem = mode === 'scales'
     ? scale
     : mode === 'chords'
@@ -537,197 +537,141 @@ function App() {
             </p>
           </div>
 
-          <div className="arrangement-toolbar" aria-label="Fingering display controls">
-            <p className="info-label">Fingerings</p>
-            <div className="button-row">
-              <button
-                type="button"
-                onClick={() => {
-                  setOpenChordFingerings(new Set(arrangement.rows.map((row) => row.id)))
-                  setChordFingeringViews(Object.fromEntries(arrangement.rows.map((row) => [row.id, 'all'])))
-                }}
-              >
-                Show all
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setOpenChordFingerings(new Set())
-                  setChordFingeringViews({})
-                }}
-              >
-                Collapse all
-              </button>
-            </div>
-          </div>
-
-          <div className="arrangement-list">
+          <div className="arrangement-tabs" role="tablist" aria-label="Arrangement chords">
             {arrangement.rows.map((row, index) => (
-              <article className="arrangement-row" key={row.id}>
-                <div className="arrangement-rank">{index + 1}</div>
-
-                <div className="arrangement-main">
-                  <div className="chord-row-copy">
-                    <div className="chord-row-title">
-                      <h3>{row.name}</h3>
-                      <p>{row.numeral} · {row.summary}</p>
-                    </div>
-
-                    <div className="chord-row-tags">
-                      <span className="mini-tag">Formula {row.formula}</span>
-                      <span className={`mini-tag dissonance-tag is-${row.dissonance.level.toLowerCase()}`}>
-                        {row.dissonance.level} dissonance
-                      </span>
-                      {row.tags.map((tag) => (
-                        <span className="mini-tag" key={`${row.id}-${tag}`}>
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  <p className="arrangement-note">{row.dissonance.description}</p>
-
-                  <div className="inline-disclosure">
-                    <button
-                      type="button"
-                      aria-expanded={openChordFingerings.has(row.id)}
-                      onClick={() => {
-                        setOpenChordFingerings((current) => {
-                          const next = new Set(current)
-
-                          if (next.has(row.id)) {
-                            next.delete(row.id)
-                          } else {
-                            next.add(row.id)
-                          }
-
-                          return next
-                        })
-                      }}
-                    >
-                      {openChordFingerings.has(row.id) ? 'Hide fingerings' : 'Show fingerings'}
-                    </button>
-
-                    {openChordFingerings.has(row.id) ? (
-                      <label className="inline-select">
-                        <span>Fingering view</span>
-                        <select
-                          value={chordFingeringViews[row.id] ?? 'typical'}
-                          onChange={(event) => {
-                            setChordFingeringViews((current) => ({
-                              ...current,
-                              [row.id]: event.target.value,
-                            }))
-                          }}
-                        >
-                          <option value="typical">Typical</option>
-                          <option value="all">All</option>
-                        </select>
-                      </label>
-                    ) : null}
-                  </div>
-
-                  {openChordFingerings.has(row.id) ? (
-                    <div className="voicing-grid">
-                      {(chordFingeringViews[row.id] === 'all' ? row.voicings : row.voicings.slice(0, 1)).map((voicing) => (
-                        <FretboardChart
-                          key={voicing.id}
-                          title={voicing.title}
-                          subtitle={voicing.subtitle}
-                          meta={voicing.meta}
-                          frets={voicing.frets}
-                          rows={voicing.rows}
-                          compact
-                          showInlays={false}
-                          fixedFrets
-                        />
-                      ))}
-                    </div>
-                  ) : null}
-
-                  <div className="scale-suggestions">
-                    <p className="info-label">Scale choices</p>
-
-                    <div className="scale-suggestion-list">
-                      {row.suggestions.map((suggestion) => (
-                        <article className="scale-suggestion" key={suggestion.id}>
-                          <div className="scale-suggestion-heading">
-                            <div>
-                              <h4>{suggestion.name}</h4>
-                              <p>{suggestion.isRootScale ? `${suggestion.usage} ${suggestion.sound}` : suggestion.usage}</p>
-                            </div>
-
-                            <div className="inline-disclosure">
-                              <button
-                                type="button"
-                                aria-expanded={openScaleCharts.has(suggestion.id)}
-                                onClick={() => {
-                                  setOpenScaleCharts((current) => {
-                                    const next = new Set(current)
-
-                                    if (next.has(suggestion.id)) {
-                                      next.delete(suggestion.id)
-                                    } else {
-                                      next.add(suggestion.id)
-                                    }
-
-                                    return next
-                                  })
-                                }}
-                              >
-                                {openScaleCharts.has(suggestion.id) ? 'Hide chart' : 'Show chart'}
-                              </button>
-
-                              {openScaleCharts.has(suggestion.id) ? (
-                                <label className="inline-select">
-                                  <span>Chart view</span>
-                                  <select
-                                    value={scaleChartViews[suggestion.id] ?? 'position'}
-                                    onChange={(event) => {
-                                      setScaleChartViews((current) => ({
-                                        ...current,
-                                        [suggestion.id]: event.target.value,
-                                      }))
-                                    }}
-                                  >
-                                    <option value="position">Position</option>
-                                    <option value="full">Full neck</option>
-                                    <option value="both">Both</option>
-                                  </select>
-                                </label>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          {openScaleCharts.has(suggestion.id) && (scaleChartViews[suggestion.id] ?? 'position') !== 'full' ? (
-                            <FretboardChart
-                              title="Position"
-                              subtitle="A compact playable window for quick testing."
-                              frets={suggestion.positionFrets}
-                              rows={suggestion.positionRows}
-                              compact
-                              showInlays={false}
-                            />
-                          ) : null}
-
-                          {openScaleCharts.has(suggestion.id) && (scaleChartViews[suggestion.id] === 'full' || scaleChartViews[suggestion.id] === 'both') ? (
-                            <FretboardChart
-                              title="Full neck"
-                              subtitle="Suggested scale tones through fret 12."
-                              frets={suggestion.fullFrets}
-                              rows={suggestion.fullRows}
-                              compact
-                            />
-                          ) : null}
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </article>
+              <button
+                className={selectedArrangementChord?.id === row.id ? 'is-active' : ''}
+                type="button"
+                role="tab"
+                aria-selected={selectedArrangementChord?.id === row.id}
+                key={row.id}
+                onClick={() => setSelectedArrangementChordId(row.id)}
+              >
+                <span>{index + 1}</span>
+                <strong>{row.name}</strong>
+                <small>{row.numeral}</small>
+              </button>
             ))}
           </div>
+
+          {selectedArrangementChord ? (
+            <article className="arrangement-detail">
+              <div className="chord-row-copy">
+                <div className="chord-row-title">
+                  <h3>{selectedArrangementChord.name}</h3>
+                  <p>{selectedArrangementChord.numeral} · {selectedArrangementChord.summary}</p>
+                </div>
+
+                <div className="chord-row-tags">
+                  <span className="mini-tag">Formula {selectedArrangementChord.formula}</span>
+                  <span className={`mini-tag dissonance-tag is-${selectedArrangementChord.dissonance.level.toLowerCase()}`}>
+                    {selectedArrangementChord.dissonance.level} dissonance
+                  </span>
+                  {selectedArrangementChord.tags.map((tag) => (
+                    <span className="mini-tag" key={`${selectedArrangementChord.id}-${tag}`}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <p className="arrangement-note">{selectedArrangementChord.dissonance.description}</p>
+
+              <article className="arrangement-fingerings">
+                <div className="inline-disclosure">
+                  <button
+                    className="disclosure-icon-button"
+                    type="button"
+                    aria-label={showArrangementFingerings ? 'Hide chord fingerings' : 'Show chord fingerings'}
+                    aria-expanded={showArrangementFingerings}
+                    onClick={() => setShowArrangementFingerings((current) => !current)}
+                  >
+                    <span></span>
+                  </button>
+                  <p className="info-label">Fingerings</p>
+                </div>
+
+                {showArrangementFingerings ? (
+                  <div className="voicing-grid">
+                    {selectedArrangementChord.voicings.map((voicing) => (
+                      <FretboardChart
+                        key={voicing.id}
+                        title={voicing.title}
+                        subtitle={voicing.subtitle}
+                        meta={voicing.meta}
+                        frets={voicing.frets}
+                        rows={voicing.rows}
+                        compact
+                        showInlays={false}
+                        fixedFrets
+                      />
+                    ))}
+                  </div>
+                ) : null}
+              </article>
+
+              <div className="scale-suggestions">
+                <p className="info-label">Scale choices</p>
+
+                <div className="scale-suggestion-list">
+                  {selectedArrangementChord.suggestions.map((suggestion) => (
+                    <article className="scale-suggestion" key={suggestion.id}>
+                      <div className="scale-suggestion-heading">
+                        <button
+                          className="disclosure-icon-button"
+                          type="button"
+                          aria-label={openScaleCharts.has(suggestion.id) ? `Hide ${suggestion.name} chart` : `Show ${suggestion.name} chart`}
+                          aria-expanded={openScaleCharts.has(suggestion.id)}
+                          onClick={() => {
+                            setOpenScaleCharts((current) => {
+                              const next = new Set(current)
+
+                              if (next.has(suggestion.id)) {
+                                next.delete(suggestion.id)
+                              } else {
+                                next.add(suggestion.id)
+                              }
+
+                              return next
+                            })
+                          }}
+                        >
+                          <span></span>
+                        </button>
+
+                        <div>
+                          <h4>{suggestion.name}</h4>
+                          <p>{suggestion.isRootScale ? `${suggestion.usage} ${suggestion.sound}` : suggestion.usage}</p>
+                        </div>
+
+                        <button
+                          className="text-action-button"
+                          type="button"
+                          onClick={() => {
+                            setRootLabel(suggestion.rootLabel)
+                            setScaleId(suggestion.scaleId)
+                            setMode('scales')
+                          }}
+                        >
+                          Open scale
+                        </button>
+                      </div>
+
+                      {openScaleCharts.has(suggestion.id) ? (
+                        <FretboardChart
+                          title="Full neck"
+                          subtitle="Suggested scale tones through fret 12."
+                          frets={suggestion.fullFrets}
+                          rows={suggestion.fullRows}
+                          compact
+                        />
+                      ) : null}
+                    </article>
+                  ))}
+                </div>
+              </div>
+            </article>
+          ) : null}
         </section>
       )}
 

@@ -1,6 +1,6 @@
 import { ARRANGEMENT_COMPLEXITY_OPTIONS } from '../data/arrangements'
 import { CHORD_QUALITIES } from '../data/chords'
-import { SCALE_LIBRARY, getPitchClassLabel } from '../data/scales'
+import { ROOT_OPTIONS, SCALE_LIBRARY, getPitchClassLabel } from '../data/scales'
 import { buildFretboardRows, buildPositionWindows, getVisibleFrets } from './fretboard'
 import { generateVoicings, getChordName } from './chords'
 
@@ -179,12 +179,15 @@ function buildSuggestions(rootPitchClass, rootScale, chord, complexityId) {
     const scaleRootPitchClass = scaleId === rootScale.id
       ? rootPitchClass
       : (rootPitchClass + chord.interval) % 12
+    const scaleRootLabel = ROOT_OPTIONS.find((option) => option.pitchClass === scaleRootPitchClass)?.label ?? 'C'
     const rows = buildFretboardRows(scaleRootPitchClass, scale, 12)
     const windows = buildPositionWindows(rows, scaleRootPitchClass, 12)
     const firstWindow = windows[0]
 
     return {
       id: `${chord.id}-${scale.id}`,
+      scaleId,
+      rootLabel: scaleRootLabel,
       name: `${getPitchClassLabel(scaleRootPitchClass)} ${scale.name}`,
       sound: scale.sound,
       usage: scaleId === rootScale.id ? 'Root-scale reference over this chord.' : scale.usage,

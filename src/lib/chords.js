@@ -26,12 +26,12 @@ function getRootLabelForPitchClass(pitchClass) {
   return ROOT_OPTIONS.find((option) => option.pitchClass === pitchClass)?.label ?? 'C'
 }
 
-function getChordName(rootPitchClass, qualityId) {
+export function getChordName(rootPitchClass, qualityId) {
   const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.min
   return `${getRootLabelForPitchClass(rootPitchClass)}${quality.suffix}`
 }
 
-function resolveQualityId(chord, complexityId) {
+export function resolveQualityId(chord, complexityId) {
   const complexityIndex = COMPLEXITY_ORDER.indexOf(complexityId)
 
   for (let index = complexityIndex; index >= 0; index -= 1) {
@@ -216,7 +216,7 @@ function buildVoicing(rootPitchClass, qualityId, template, frets) {
   }
 }
 
-function generateVoicings(rootPitchClass, qualityId, playabilityId) {
+export function generateVoicings(rootPitchClass, qualityId, playabilityId) {
   const templates = CHORD_VOICING_TEMPLATES.filter((template) => template.quality === qualityId)
   const settings = PLAYABILITY_LIMITS[playabilityId]
   const candidates = []

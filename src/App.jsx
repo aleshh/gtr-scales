@@ -11,6 +11,9 @@ import {
   CHORD_FLAVOR_LIBRARY,
 } from './data/chords'
 import {
+  ARRANGEMENT_COMPLEXITY_OPTIONS,
+} from './data/arrangements'
+import {
   MAX_FRET,
   buildFretboardRows,
   buildPositionWindows,
@@ -18,6 +21,7 @@ import {
   getVisibleFrets,
 } from './lib/fretboard'
 import { buildChordGroups } from './lib/chords'
+import { buildArrangement } from './lib/arrangements'
 
 const DEFAULT_QUERY_STATE = {
   mode: 'scales',
@@ -25,13 +29,15 @@ const DEFAULT_QUERY_STATE = {
   scale: 'phrygian',
   flavor: 'major',
   complexity: 'sevenths',
+  arrangementComplexity: 'folk-rock',
 }
 
-const VALID_MODES = new Set(['scales', 'chords'])
+const VALID_MODES = new Set(['scales', 'chords', 'arrangement'])
 const VALID_ROOTS = new Set(ROOT_OPTIONS.map((option) => option.label))
 const VALID_SCALES = new Set(SCALE_LIBRARY.map((item) => item.id))
 const VALID_FLAVORS = new Set(CHORD_FLAVOR_LIBRARY.map((item) => item.id))
 const VALID_COMPLEXITIES = new Set(CHORD_COMPLEXITY_OPTIONS.map((item) => item.id))
+const VALID_ARRANGEMENT_COMPLEXITIES = new Set(ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => item.id))
 
 function getValidQueryValue(params, key, validValues, fallback) {
   const value = params.get(key)
@@ -47,6 +53,7 @@ function readQueryState(search = '') {
     scale: getValidQueryValue(params, 'scale', VALID_SCALES, DEFAULT_QUERY_STATE.scale),
     flavor: getValidQueryValue(params, 'flavor', VALID_FLAVORS, DEFAULT_QUERY_STATE.flavor),
     complexity: getValidQueryValue(params, 'complexity', VALID_COMPLEXITIES, DEFAULT_QUERY_STATE.complexity),
+    arrangementComplexity: getValidQueryValue(params, 'arrangementComplexity', VALID_ARRANGEMENT_COMPLEXITIES, DEFAULT_QUERY_STATE.arrangementComplexity),
   }
 }
 
@@ -173,6 +180,11 @@ function App() {
   const [scaleId, setScaleId] = useState(() => readQueryState(window.location.search).scale)
   const [flavorId, setFlavorId] = useState(() => readQueryState(window.location.search).flavor)
   const [complexityId, setComplexityId] = useState(() => readQueryState(window.location.search).complexity)
+  const [arrangementComplexityId, setArrangementComplexityId] = useState(() => readQueryState(window.location.search).arrangementComplexity)
+  const [openChordFingerings, setOpenChordFingerings] = useState(() => new Set())
+  const [chordFingeringViews, setChordFingeringViews] = useState({})
+  const [openScaleCharts, setOpenScaleCharts] = useState(() => new Set())
+  const [scaleChartViews, setScaleChartViews] = useState({})
 
   const groupedScales = groupItemsByFamily(SCALE_LIBRARY)
   const groupedFlavors = groupItemsByFamily(CHORD_FLAVOR_LIBRARY)
@@ -180,17 +192,28 @@ function App() {
   const scale = SCALE_LIBRARY.find((item) => item.id === scaleId) ?? SCALE_LIBRARY[0]
   const flavor = CHORD_FLAVOR_LIBRARY.find((item) => item.id === flavorId) ?? CHORD_FLAVOR_LIBRARY[0]
   const complexity = CHORD_COMPLEXITY_OPTIONS.find((item) => item.id === complexityId) ?? CHORD_COMPLEXITY_OPTIONS[1]
+  const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId)
   const rows = buildFretboardRows(root.pitchClass, scale, MAX_FRET)
   const fullNeckFrets = getVisibleFrets(0, MAX_FRET + 1, MAX_FRET)
   const positionWindows = buildPositionWindows(rows, root.pitchClass)
   const scaleFormula = getScaleFormula(scale)
   const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
   const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id, 'full')
-  const selectedTheoryItem = mode === 'scales' ? scale : flavor
-  const heroTitle = mode === 'scales' ? `${root.label} ${scale.name}` : `${root.label} ${flavor.name} chords`
+  const selectedTheoryItem = mode === 'scales'
+    ? scale
+    : mode === 'chords'
+      ? flavor
+      : arrangement.complexity
+  const heroTitle = mode === 'scales'
+    ? `${root.label} ${scale.name}`
+    : mode === 'chords'
+      ? `${root.label} ${flavor.name} chords`
+      : `${root.label} ${scale.name} arrangement`
   const controlIntro = mode === 'scales'
     ? 'Generate degree-labeled fretboard charts and practice positions for common modes, bebop scales, symmetric sounds, and more unusual harmonic colors. Built for practical fretboard reference, not perfectly key-spelled notation.'
-    : 'Generate practical chord worlds by root and harmonic flavor, ordered for real playing and writing rather than exhaustive theory coverage. Built for musical usefulness first, not strict completeness.'
+    : mode === 'chords'
+      ? 'Generate practical chord worlds by root and harmonic flavor, ordered for real playing and writing rather than exhaustive theory coverage. Built for musical usefulness first, not strict completeness.'
+      : 'Build a composition palette from a root and scale: likely chords first, useful grips, chord-scale choices, and a quick read on how much the root scale rubs against each chord.'
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -200,6 +223,9 @@ function App() {
     params.set('scale', scaleId)
     params.set('flavor', flavorId)
     params.set('complexity', complexityId)
+    params.set('arrangementComplexity', arrangementComplexityId)
+    params.delete('chordDisplay')
+    params.delete('scaleDisplay')
 
     const nextSearch = params.toString()
     const currentSearch = window.location.search.startsWith('?')
@@ -212,7 +238,7 @@ function App() {
 
     const nextUrl = `${window.location.pathname}?${nextSearch}${window.location.hash}`
     window.history.replaceState(null, '', nextUrl)
-  }, [mode, rootLabel, scaleId, flavorId, complexityId])
+  }, [mode, rootLabel, scaleId, flavorId, complexityId, arrangementComplexityId])
 
   useEffect(() => {
     function syncFromUrl() {
@@ -223,6 +249,7 @@ function App() {
       setScaleId(nextState.scale)
       setFlavorId(nextState.flavor)
       setComplexityId(nextState.complexity)
+      setArrangementComplexityId(nextState.arrangementComplexity)
     }
 
     window.addEventListener('popstate', syncFromUrl)
@@ -253,6 +280,13 @@ function App() {
           >
             Chords
           </button>
+          <button
+            className={mode === 'arrangement' ? 'is-active' : ''}
+            type="button"
+            onClick={() => setMode('arrangement')}
+          >
+            Arrangement
+          </button>
         </div>
 
         <label className="control-field">
@@ -266,7 +300,7 @@ function App() {
           </select>
         </label>
 
-        {mode === 'scales' ? (
+        {mode === 'scales' || mode === 'arrangement' ? (
           <label className="control-field">
             <span>Mode / scale</span>
             <select value={scale.id} onChange={(event) => setScaleId(event.target.value)}>
@@ -281,7 +315,9 @@ function App() {
               ))}
             </select>
           </label>
-        ) : (
+        ) : null}
+
+        {mode === 'chords' ? (
           <>
             <label className="control-field">
               <span>Flavor</span>
@@ -309,7 +345,22 @@ function App() {
               </select>
             </label>
           </>
-        )}
+        ) : null}
+
+        {mode === 'arrangement' ? (
+          <>
+            <label className="control-field">
+              <span>Complexity</span>
+              <select value={arrangement.complexity.id} onChange={(event) => setArrangementComplexityId(event.target.value)}>
+                {ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </>
+        ) : null}
       </section>
 
       <section className="hero-panel">
@@ -329,7 +380,7 @@ function App() {
         </div>
 
         <div className="hero-summary">
-          {mode === 'scales' ? (
+          {mode !== 'chords' ? (
             <>
               <div className="summary-chip">
                 <span>Formula</span>
@@ -340,6 +391,13 @@ function App() {
                 <strong>{pitchCollection.join('  ')}</strong>
               </div>
             </>
+          ) : null}
+
+          {mode === 'arrangement' ? (
+            <div className="summary-chip">
+              <span>Palette</span>
+              <strong>{arrangement.complexity.label}</strong>
+            </div>
           ) : null}
         </div>
       </section>
@@ -391,7 +449,7 @@ function App() {
             </div>
           </section>
         </>
-      ) : (
+      ) : mode === 'chords' ? (
         <section className="chord-section">
           <div className="section-heading">
             <div>
@@ -463,6 +521,211 @@ function App() {
                   ))}
                 </div>
               </section>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="arrangement-section">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Arrangement mode</p>
+              <h2>Likely composition chords</h2>
+            </div>
+            <p>
+              Chords are ordered from likely anchors and support chords toward stronger color,
+              substitution, and tension options.
+            </p>
+          </div>
+
+          <div className="arrangement-toolbar" aria-label="Fingering display controls">
+            <p className="info-label">Fingerings</p>
+            <div className="button-row">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenChordFingerings(new Set(arrangement.rows.map((row) => row.id)))
+                  setChordFingeringViews(Object.fromEntries(arrangement.rows.map((row) => [row.id, 'all'])))
+                }}
+              >
+                Show all
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenChordFingerings(new Set())
+                  setChordFingeringViews({})
+                }}
+              >
+                Collapse all
+              </button>
+            </div>
+          </div>
+
+          <div className="arrangement-list">
+            {arrangement.rows.map((row, index) => (
+              <article className="arrangement-row" key={row.id}>
+                <div className="arrangement-rank">{index + 1}</div>
+
+                <div className="arrangement-main">
+                  <div className="chord-row-copy">
+                    <div className="chord-row-title">
+                      <h3>{row.name}</h3>
+                      <p>{row.numeral} · {row.summary}</p>
+                    </div>
+
+                    <div className="chord-row-tags">
+                      <span className="mini-tag">Formula {row.formula}</span>
+                      <span className={`mini-tag dissonance-tag is-${row.dissonance.level.toLowerCase()}`}>
+                        {row.dissonance.level} dissonance
+                      </span>
+                      {row.tags.map((tag) => (
+                        <span className="mini-tag" key={`${row.id}-${tag}`}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="arrangement-note">{row.dissonance.description}</p>
+
+                  <div className="inline-disclosure">
+                    <button
+                      type="button"
+                      aria-expanded={openChordFingerings.has(row.id)}
+                      onClick={() => {
+                        setOpenChordFingerings((current) => {
+                          const next = new Set(current)
+
+                          if (next.has(row.id)) {
+                            next.delete(row.id)
+                          } else {
+                            next.add(row.id)
+                          }
+
+                          return next
+                        })
+                      }}
+                    >
+                      {openChordFingerings.has(row.id) ? 'Hide fingerings' : 'Show fingerings'}
+                    </button>
+
+                    {openChordFingerings.has(row.id) ? (
+                      <label className="inline-select">
+                        <span>Fingering view</span>
+                        <select
+                          value={chordFingeringViews[row.id] ?? 'typical'}
+                          onChange={(event) => {
+                            setChordFingeringViews((current) => ({
+                              ...current,
+                              [row.id]: event.target.value,
+                            }))
+                          }}
+                        >
+                          <option value="typical">Typical</option>
+                          <option value="all">All</option>
+                        </select>
+                      </label>
+                    ) : null}
+                  </div>
+
+                  {openChordFingerings.has(row.id) ? (
+                    <div className="voicing-grid">
+                      {(chordFingeringViews[row.id] === 'all' ? row.voicings : row.voicings.slice(0, 1)).map((voicing) => (
+                        <FretboardChart
+                          key={voicing.id}
+                          title={voicing.title}
+                          subtitle={voicing.subtitle}
+                          meta={voicing.meta}
+                          frets={voicing.frets}
+                          rows={voicing.rows}
+                          compact
+                          showInlays={false}
+                          fixedFrets
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+
+                  <div className="scale-suggestions">
+                    <p className="info-label">Scale choices</p>
+
+                    <div className="scale-suggestion-list">
+                      {row.suggestions.map((suggestion) => (
+                        <article className="scale-suggestion" key={suggestion.id}>
+                          <div className="scale-suggestion-heading">
+                            <div>
+                              <h4>{suggestion.name}</h4>
+                              <p>{suggestion.isRootScale ? `${suggestion.usage} ${suggestion.sound}` : suggestion.usage}</p>
+                            </div>
+
+                            <div className="inline-disclosure">
+                              <button
+                                type="button"
+                                aria-expanded={openScaleCharts.has(suggestion.id)}
+                                onClick={() => {
+                                  setOpenScaleCharts((current) => {
+                                    const next = new Set(current)
+
+                                    if (next.has(suggestion.id)) {
+                                      next.delete(suggestion.id)
+                                    } else {
+                                      next.add(suggestion.id)
+                                    }
+
+                                    return next
+                                  })
+                                }}
+                              >
+                                {openScaleCharts.has(suggestion.id) ? 'Hide chart' : 'Show chart'}
+                              </button>
+
+                              {openScaleCharts.has(suggestion.id) ? (
+                                <label className="inline-select">
+                                  <span>Chart view</span>
+                                  <select
+                                    value={scaleChartViews[suggestion.id] ?? 'position'}
+                                    onChange={(event) => {
+                                      setScaleChartViews((current) => ({
+                                        ...current,
+                                        [suggestion.id]: event.target.value,
+                                      }))
+                                    }}
+                                  >
+                                    <option value="position">Position</option>
+                                    <option value="full">Full neck</option>
+                                    <option value="both">Both</option>
+                                  </select>
+                                </label>
+                              ) : null}
+                            </div>
+                          </div>
+
+                          {openScaleCharts.has(suggestion.id) && (scaleChartViews[suggestion.id] ?? 'position') !== 'full' ? (
+                            <FretboardChart
+                              title="Position"
+                              subtitle="A compact playable window for quick testing."
+                              frets={suggestion.positionFrets}
+                              rows={suggestion.positionRows}
+                              compact
+                              showInlays={false}
+                            />
+                          ) : null}
+
+                          {openScaleCharts.has(suggestion.id) && (scaleChartViews[suggestion.id] === 'full' || scaleChartViews[suggestion.id] === 'both') ? (
+                            <FretboardChart
+                              title="Full neck"
+                              subtitle="Suggested scale tones through fret 12."
+                              frets={suggestion.fullFrets}
+                              rows={suggestion.fullRows}
+                              compact
+                            />
+                          ) : null}
+                        </article>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </article>
             ))}
           </div>
         </section>

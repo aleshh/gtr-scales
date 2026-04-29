@@ -328,7 +328,7 @@ function App() {
     }
 
     const nextUrl = `${window.location.pathname}?${nextSearch}${window.location.hash}`
-    window.history.replaceState(null, '', nextUrl)
+    window.history.pushState(null, '', nextUrl)
   }, [mode, instrument, rootLabel, scaleId, flavorId, complexityId, arrangementComplexityId])
 
   useEffect(() => {

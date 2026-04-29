@@ -287,6 +287,8 @@ function App() {
   const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
   const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id, 'full')
   const selectedArrangementChord = arrangement.rows.find((row) => row.id === selectedArrangementChordId) ?? arrangement.rows[0]
+  const selectedAlternativeScaleSuggestions = selectedArrangementChord?.suggestions.filter((suggestion) => !suggestion.isRootScale) ?? []
+  const primaryArrangementScaleId = `primary-${root.label}-${scale.id}`
   const selectedTheoryItem = mode === 'scales'
     ? scale
     : mode === 'chords'
@@ -355,119 +357,121 @@ function App() {
         <p className="eyebrow control-eyebrow">Guitar scale and chord fingering chart generator</p>
         <p className="control-intro">{controlIntro}</p>
 
-        <div className="instrument-toggle" role="tablist" aria-label="Instrument">
-          <button
-            className={instrument === 'guitar' ? 'is-active' : ''}
-            type="button"
-            onClick={() => setInstrument('guitar')}
-          >
-            Guitar
-          </button>
-          <button
-            className={instrument === 'piano' ? 'is-active' : ''}
-            type="button"
-            onClick={() => setInstrument('piano')}
-          >
-            Piano
-          </button>
-        </div>
+        <div className="control-toolbar">
+          <div className="instrument-toggle" role="tablist" aria-label="Instrument">
+            <button
+              className={instrument === 'guitar' ? 'is-active' : ''}
+              type="button"
+              onClick={() => setInstrument('guitar')}
+            >
+              Guitar
+            </button>
+            <button
+              className={instrument === 'piano' ? 'is-active' : ''}
+              type="button"
+              onClick={() => setInstrument('piano')}
+            >
+              Piano
+            </button>
+          </div>
 
-        <div className="mode-toggle" role="tablist" aria-label="View mode">
-          <button
-            className={mode === 'scales' ? 'is-active' : ''}
-            type="button"
-            onClick={() => setMode('scales')}
-          >
-            Scales
-          </button>
-          <button
-            className={mode === 'chords' ? 'is-active' : ''}
-            type="button"
-            onClick={() => setMode('chords')}
-          >
-            Chords
-          </button>
-          <button
-            className={mode === 'arrangement' ? 'is-active' : ''}
-            type="button"
-            onClick={() => setMode('arrangement')}
-          >
-            Arrangement
-          </button>
-        </div>
+          <div className="mode-toggle" role="tablist" aria-label="View mode">
+            <button
+              className={mode === 'scales' ? 'is-active' : ''}
+              type="button"
+              onClick={() => setMode('scales')}
+            >
+              Scales
+            </button>
+            <button
+              className={mode === 'chords' ? 'is-active' : ''}
+              type="button"
+              onClick={() => setMode('chords')}
+            >
+              Chords
+            </button>
+            <button
+              className={mode === 'arrangement' ? 'is-active' : ''}
+              type="button"
+              onClick={() => setMode('arrangement')}
+            >
+              Arrangement
+            </button>
+          </div>
 
-        <label className="control-field">
-          <span>Root note</span>
-          <select value={root.label} onChange={(event) => setRootLabel(event.target.value)}>
-            {ROOT_OPTIONS.map((option) => (
-              <option key={option.label} value={option.label}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        {mode === 'scales' || mode === 'arrangement' ? (
-          <label className="control-field">
-            <span>Mode / scale</span>
-            <select value={scale.id} onChange={(event) => setScaleId(event.target.value)}>
-              {Object.entries(groupedScales).map(([family, familyScales]) => (
-                <optgroup key={family} label={family}>
-                  {familyScales.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
-        ) : null}
-
-        {mode === 'chords' ? (
-          <>
+          <div className="control-selectors">
             <label className="control-field">
-              <span>Flavor</span>
-              <select value={flavor.id} onChange={(event) => setFlavorId(event.target.value)}>
-                {Object.entries(groupedFlavors).map(([family, familyFlavors]) => (
-                  <optgroup key={family} label={family}>
-                    {familyFlavors.map((item) => (
+              <span>Root note</span>
+              <select value={root.label} onChange={(event) => setRootLabel(event.target.value)}>
+                {ROOT_OPTIONS.map((option) => (
+                  <option key={option.label} value={option.label}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            {mode === 'scales' || mode === 'arrangement' ? (
+              <label className="control-field">
+                <span>Mode / scale</span>
+                <select value={scale.id} onChange={(event) => setScaleId(event.target.value)}>
+                  {Object.entries(groupedScales).map(([family, familyScales]) => (
+                    <optgroup key={family} label={family}>
+                      {familyScales.map((item) => (
+                        <option key={item.id} value={item.id}>
+                          {item.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+
+            {mode === 'chords' ? (
+              <>
+                <label className="control-field">
+                  <span>Flavor</span>
+                  <select value={flavor.id} onChange={(event) => setFlavorId(event.target.value)}>
+                    {Object.entries(groupedFlavors).map(([family, familyFlavors]) => (
+                      <optgroup key={family} label={family}>
+                        {familyFlavors.map((item) => (
+                          <option key={item.id} value={item.id}>
+                            {item.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </label>
+
+                <label className="control-field">
+                  <span>Complexity</span>
+                  <select value={complexity.id} onChange={(event) => setComplexityId(event.target.value)}>
+                    {CHORD_COMPLEXITY_OPTIONS.map((item) => (
                       <option key={item.id} value={item.id}>
-                        {item.name}
+                        {item.label}
                       </option>
                     ))}
-                  </optgroup>
-                ))}
-              </select>
-            </label>
+                  </select>
+                </label>
+              </>
+            ) : null}
 
-            <label className="control-field">
-              <span>Complexity</span>
-              <select value={complexity.id} onChange={(event) => setComplexityId(event.target.value)}>
-                {CHORD_COMPLEXITY_OPTIONS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </>
-        ) : null}
-
-        {mode === 'arrangement' ? (
-          <>
-            <label className="control-field">
-              <span>Complexity</span>
-              <select value={arrangement.complexity.id} onChange={(event) => setArrangementComplexityId(event.target.value)}>
-                {ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </>
-        ) : null}
+            {mode === 'arrangement' ? (
+              <label className="control-field">
+                <span>Complexity</span>
+                <select value={arrangement.complexity.id} onChange={(event) => setArrangementComplexityId(event.target.value)}>
+                  {ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+          </div>
+        </div>
       </section>
 
       <section className="hero-panel">
@@ -659,6 +663,78 @@ function App() {
           <div className="section-heading">
             <div>
               <p className="eyebrow">Arrangement mode</p>
+              <h2>Primary scale</h2>
+            </div>
+            <p>
+              Start from the selected root and scale, then compare the chord palette against this
+              reference collection.
+            </p>
+          </div>
+
+          <article className="scale-suggestion arrangement-primary-scale">
+            <div className="scale-suggestion-heading">
+              <button
+                className="disclosure-icon-button"
+                type="button"
+                aria-label={openScaleCharts.has(primaryArrangementScaleId) ? `Hide ${root.label} ${scale.name} chart` : `Show ${root.label} ${scale.name} chart`}
+                aria-expanded={openScaleCharts.has(primaryArrangementScaleId)}
+                onClick={() => {
+                  setOpenScaleCharts((current) => {
+                    const next = new Set(current)
+
+                    if (next.has(primaryArrangementScaleId)) {
+                      next.delete(primaryArrangementScaleId)
+                    } else {
+                      next.add(primaryArrangementScaleId)
+                    }
+
+                    return next
+                  })
+                }}
+              >
+                <span></span>
+              </button>
+
+              <div>
+                <p className="info-label">Primary scale</p>
+                <h4>{root.label} {scale.name}</h4>
+                <p>Root-scale reference for this arrangement. {scale.sound}</p>
+              </div>
+
+              <button
+                className="text-action-button"
+                type="button"
+                onClick={() => setMode('scales')}
+              >
+                Open scale
+              </button>
+            </div>
+
+            {openScaleCharts.has(primaryArrangementScaleId) ? (
+              instrument === 'guitar' ? (
+                <FretboardChart
+                  title="Full neck"
+                  subtitle="Primary scale tones through fret 12."
+                  frets={getVisibleFrets(0, 13, 12)}
+                  rows={buildFretboardRows(root.pitchClass, scale, 12)}
+                  compact
+                />
+              ) : (
+                <PianoKeyboardChart
+                  title="Keyboard map"
+                  subtitle="Primary scale tones across two octaves."
+                  pitchClasses={scalePitchClasses}
+                  rootPitchClass={root.pitchClass}
+                  labelsByPitchClass={scaleLabelsByPitchClass}
+                  compact
+                />
+              )
+            ) : null}
+          </article>
+
+          <div className="section-heading arrangement-chord-heading">
+            <div>
+              <p className="eyebrow">Composition chords</p>
               <h2>Likely composition chords</h2>
             </div>
             <p>
@@ -751,11 +827,12 @@ function App() {
                 ) : null}
               </article>
 
+              {selectedAlternativeScaleSuggestions.length > 0 ? (
               <div className="scale-suggestions">
-                <p className="info-label">Scale choices</p>
+                <p className="info-label">Alternative scales</p>
 
                 <div className="scale-suggestion-list">
-                  {selectedArrangementChord.suggestions.map((suggestion) => (
+                  {selectedAlternativeScaleSuggestions.map((suggestion) => (
                     <article className="scale-suggestion" key={suggestion.id}>
                       <div className="scale-suggestion-heading">
                         <button
@@ -822,6 +899,7 @@ function App() {
                   ))}
                 </div>
               </div>
+              ) : null}
             </article>
           ) : null}
         </section>

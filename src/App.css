@@ -236,6 +236,7 @@
 }
 
 .chart-card {
+  min-width: 0;
   padding: 20px;
   border-radius: 8px;
   background:
@@ -577,6 +578,7 @@
 }
 
 .chord-row {
+  min-width: 0;
   padding-top: 18px;
   border-top: 1px solid rgba(55, 90, 71, 0.14);
   display: grid;
@@ -619,6 +621,7 @@
 }
 
 .voicing-grid {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
@@ -631,7 +634,14 @@
   max-width: 100%;
 }
 
+.voicing-grid > .piano-card {
+  flex: 1 1 100%;
+  min-width: 0;
+  width: 100%;
+}
+
 .arrangement-fingerings {
+  min-width: 0;
   display: grid;
   gap: 12px;
   padding: 12px;
@@ -718,6 +728,7 @@
 }
 
 .arrangement-detail {
+  min-width: 0;
   display: grid;
   gap: 14px;
   padding-top: 18px;

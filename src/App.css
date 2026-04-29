@@ -394,12 +394,6 @@
   background: #2f6146;
 }
 
-.piano-key.is-root {
-  background: var(--accent);
-  color: #fff8ee;
-  box-shadow: inset 0 0 0 2px rgba(47, 97, 70, 0.2);
-}
-
 .piano-key span {
   display: inline-flex;
   align-items: center;
@@ -414,9 +408,15 @@
   font-size: 0.8rem;
 }
 
+.piano-key.is-white span {
+  border: 1.5px solid rgba(47, 97, 70, 0.34);
+  box-shadow: inset 0 0 0 1px rgba(77, 139, 103, 0.08);
+}
+
 .piano-key.is-root span {
-  background: rgba(255, 248, 238, 0.22);
+  background: var(--accent);
   color: #fff8ee;
+  box-shadow: 0 0 0 1px rgba(47, 97, 70, 0.18);
 }
 
 .piano-key.is-black span {

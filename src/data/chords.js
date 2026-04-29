@@ -23,6 +23,26 @@ const CHORD_QUALITIES = {
       7: '5',
     },
   },
+  majorFlat5: {
+    id: 'majorFlat5',
+    suffix: 'b5',
+    formula: '1  3  b5',
+    toneLabels: {
+      0: '1',
+      4: '3',
+      6: 'b5',
+    },
+  },
+  augmented: {
+    id: 'augmented',
+    suffix: 'aug',
+    formula: '1  3  #5',
+    toneLabels: {
+      0: '1',
+      4: '3',
+      8: '#5',
+    },
+  },
   min: {
     id: 'min',
     suffix: 'm',
@@ -108,6 +128,17 @@ const CHORD_QUALITIES = {
       10: 'b7',
     },
   },
+  minorMajor7: {
+    id: 'minorMajor7',
+    suffix: 'mMaj7',
+    formula: '1  b3  5  7',
+    toneLabels: {
+      0: '1',
+      3: 'b3',
+      7: '5',
+      11: '7',
+    },
+  },
   minor7Flat5: {
     id: 'minor7Flat5',
     suffix: 'm7b5',
@@ -116,6 +147,28 @@ const CHORD_QUALITIES = {
       0: '1',
       3: 'b3',
       6: 'b5',
+      10: 'b7',
+    },
+  },
+  dominant7Flat5: {
+    id: 'dominant7Flat5',
+    suffix: '7b5',
+    formula: '1  3  b5  b7',
+    toneLabels: {
+      0: '1',
+      4: '3',
+      6: 'b5',
+      10: 'b7',
+    },
+  },
+  dominant7Sharp5: {
+    id: 'dominant7Sharp5',
+    suffix: '7#5',
+    formula: '1  3  #5  b7',
+    toneLabels: {
+      0: '1',
+      4: '3',
+      8: '#5',
       10: 'b7',
     },
   },
@@ -508,6 +561,13 @@ const CHORD_VOICING_TEMPLATES = [
   { id: 'maj-d', quality: 'maj', label: 'Upper D shape', anchorString: 4, frets: [-1, -1, 0, 2, 3, 2], tags: ['compact'], priority: 3 },
   { id: 'maj-a-compact', quality: 'maj', label: 'Compact triad', anchorString: 5, frets: [-1, 0, 2, 2, 2, -1], tags: ['compact', 'jazz'], priority: 4 },
 
+  { id: 'major-flat5-6', quality: 'majorFlat5', label: 'Low b5 triad', anchorString: 6, frets: [0, 1, 2, 1, -1, -1], tags: ['compact', 'jazz'], priority: 1 },
+  { id: 'major-flat5-5', quality: 'majorFlat5', label: 'A-string b5 triad', anchorString: 5, frets: [-1, 0, 1, 2, 2, -1], tags: ['compact', 'jazz'], priority: 2 },
+
+  { id: 'aug-e', quality: 'augmented', label: 'Low augmented shape', anchorString: 6, frets: [0, 3, 2, 1, 1, 0], tags: ['open', 'barre'], priority: 1 },
+  { id: 'aug-a', quality: 'augmented', label: 'A-string augmented shape', anchorString: 5, frets: [-1, 0, 3, 2, 2, 1], tags: ['barre'], priority: 2 },
+  { id: 'aug-d', quality: 'augmented', label: 'Upper augmented shape', anchorString: 4, frets: [-1, -1, 0, 3, 3, 2], tags: ['compact'], priority: 3 },
+
   { id: 'min-e', quality: 'min', label: 'Low E shape', anchorString: 6, frets: [0, 2, 2, 0, 0, 0], tags: ['open', 'barre'], priority: 1 },
   { id: 'min-a', quality: 'min', label: 'A-string shape', anchorString: 5, frets: [-1, 0, 2, 2, 1, 0], tags: ['barre'], priority: 2 },
   { id: 'min-d', quality: 'min', label: 'Upper D shape', anchorString: 4, frets: [-1, -1, 0, 2, 3, 1], tags: ['compact'], priority: 3 },
@@ -540,21 +600,32 @@ const CHORD_VOICING_TEMPLATES = [
   { id: 'min7-d', quality: 'minor7', label: 'Upper m7 shape', anchorString: 4, frets: [-1, -1, 0, 2, 1, 1], tags: ['compact'], priority: 3 },
   { id: 'min7-compact', quality: 'minor7', label: 'Compact m7 shape', anchorString: 5, frets: [-1, 0, 2, 0, 1, -1], tags: ['compact', 'jazz'], priority: 4 },
 
-  { id: 'm7b5-6', quality: 'minor7Flat5', label: 'Low-root m7b5', anchorString: 6, frets: [0, 1, 0, 1, -1, -1], tags: ['compact', 'jazz'], priority: 1 },
+  { id: 'minmaj7-6', quality: 'minorMajor7', label: 'Low mMaj7 shape', anchorString: 6, frets: [0, 2, 1, 0, 0, 0], tags: ['open', 'barre'], priority: 1 },
+  { id: 'minmaj7-5', quality: 'minorMajor7', label: 'A-string mMaj7 shape', anchorString: 5, frets: [-1, 0, 2, 1, 1, 0], tags: ['barre'], priority: 2 },
+  { id: 'minmaj7-compact', quality: 'minorMajor7', label: 'Compact mMaj7 shape', anchorString: 5, frets: [-1, 0, 2, 1, 1, -1], tags: ['compact', 'jazz'], priority: 3 },
+
+  { id: 'm7b5-6', quality: 'minor7Flat5', label: 'Low-root m7b5', anchorString: 6, frets: [0, 1, 0, 0, 3, 0], tags: ['open', 'barre'], priority: 1 },
   { id: 'm7b5-5', quality: 'minor7Flat5', label: 'A-string m7b5', anchorString: 5, frets: [-1, 0, 1, 0, 1, -1], tags: ['compact', 'jazz'], priority: 2 },
   { id: 'm7b5-upper', quality: 'minor7Flat5', label: 'Upper m7b5', anchorString: 4, frets: [-1, -1, 0, 1, 1, 1], tags: ['compact', 'jazz'], priority: 3 },
 
   { id: 'dim-6', quality: 'dim', label: 'Low diminished triad', anchorString: 6, frets: [0, 1, 2, -1, -1, -1], tags: ['compact', 'jazz'], priority: 1 },
   { id: 'dim-5', quality: 'dim', label: 'A-string diminished triad', anchorString: 5, frets: [-1, 0, 1, 2, -1, -1], tags: ['compact', 'jazz'], priority: 2 },
-  { id: 'dim-upper', quality: 'dim', label: 'Upper diminished triad', anchorString: 4, frets: [-1, -1, 0, 1, 0, -1], tags: ['compact', 'jazz'], priority: 3 },
+  { id: 'dim-upper', quality: 'dim', label: 'Upper diminished triad', anchorString: 4, frets: [-1, -1, 0, 1, 3, 1], tags: ['compact', 'jazz'], priority: 3 },
 
   { id: 'dim7-6', quality: 'diminished7', label: 'Low dim7 shape', anchorString: 6, frets: [0, 1, 2, 0, -1, -1], tags: ['compact', 'jazz'], priority: 1 },
   { id: 'dim7-5', quality: 'diminished7', label: 'A-string dim7 shape', anchorString: 5, frets: [-1, 0, 1, 2, 1, -1], tags: ['compact', 'jazz'], priority: 2 },
   { id: 'dim7-upper', quality: 'diminished7', label: 'Upper dim7 shape', anchorString: 4, frets: [-1, -1, 0, 1, 0, 1], tags: ['compact', 'jazz'], priority: 3 },
 
-  { id: 'dom9-e', quality: 'dominant9', label: 'Low 9 shape', anchorString: 6, frets: [0, 2, 0, 1, 2, 2], tags: ['open', 'barre'], priority: 1 },
-  { id: 'dom9-a', quality: 'dominant9', label: 'A-string 9 shape', anchorString: 5, frets: [-1, 0, 2, 0, 2, 2], tags: ['barre'], priority: 2 },
+  { id: 'dom9-e', quality: 'dominant9', label: 'Low 9 shape', anchorString: 6, frets: [0, 2, 0, 1, 0, 2], tags: ['open', 'barre'], priority: 1 },
+  { id: 'dom9-a', quality: 'dominant9', label: 'A-string 9 shape', anchorString: 5, frets: [-1, 0, 2, 4, 2, 3], tags: ['barre'], priority: 2 },
   { id: 'dom9-compact', quality: 'dominant9', label: 'Compact 9 shape', anchorString: 5, frets: [-1, 0, 2, 0, 2, -1], tags: ['compact', 'jazz'], priority: 3 },
+
+  { id: 'dom7b5-6', quality: 'dominant7Flat5', label: 'Low 7b5 shape', anchorString: 6, frets: [0, 1, 0, 1, -1, -1], tags: ['compact', 'jazz'], priority: 1 },
+  { id: 'dom7b5-5', quality: 'dominant7Flat5', label: 'A-string 7b5 shape', anchorString: 5, frets: [-1, 0, 1, 0, 2, -1], tags: ['compact', 'jazz'], priority: 2 },
+
+  { id: 'dom7sharp5-6', quality: 'dominant7Sharp5', label: 'Low 7#5 shape', anchorString: 6, frets: [0, 3, 0, 1, 1, 0], tags: ['open', 'barre'], priority: 1 },
+  { id: 'dom7sharp5-5', quality: 'dominant7Sharp5', label: 'A-string 7#5 shape', anchorString: 5, frets: [-1, 0, 3, 0, 2, 1], tags: ['barre'], priority: 2 },
+  { id: 'dom7sharp5-compact', quality: 'dominant7Sharp5', label: 'Compact 7#5 shape', anchorString: 5, frets: [-1, 0, 3, 0, 2, -1], tags: ['compact', 'jazz'], priority: 3 },
 
   { id: 'dom7sus4-e', quality: 'dominant7Sus4', label: 'Low 7sus4 shape', anchorString: 6, frets: [0, 2, 0, 2, 0, 0], tags: ['open', 'barre'], priority: 1 },
   { id: 'dom7sus4-a', quality: 'dominant7Sus4', label: 'A-string 7sus4 shape', anchorString: 5, frets: [-1, 0, 2, 0, 3, 0], tags: ['barre'], priority: 2 },

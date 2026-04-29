@@ -183,6 +183,10 @@ function buildSuggestions(rootPitchClass, rootScale, chord, complexityId) {
     const rows = buildFretboardRows(scaleRootPitchClass, scale, 12)
     const windows = buildPositionWindows(rows, scaleRootPitchClass, 12)
     const firstWindow = windows[0]
+    const pitchClasses = scale.intervals.map((interval) => (scaleRootPitchClass + interval) % 12)
+    const labelsByPitchClass = Object.fromEntries(
+      scale.intervals.map((interval) => [(scaleRootPitchClass + interval) % 12, scale.degreeLabels[interval]]),
+    )
 
     return {
       id: `${chord.id}-${scale.id}`,
@@ -192,6 +196,9 @@ function buildSuggestions(rootPitchClass, rootScale, chord, complexityId) {
       sound: scale.sound,
       usage: scaleId === rootScale.id ? 'Root-scale reference over this chord.' : scale.usage,
       isRootScale: scaleId === rootScale.id,
+      rootPitchClass: scaleRootPitchClass,
+      pitchClasses,
+      labelsByPitchClass,
       fullFrets: getVisibleFrets(0, 13, 12),
       fullRows: rows,
       positionFrets: firstWindow?.frets ?? getVisibleFrets(0, 5, 12),
@@ -222,6 +229,7 @@ export function buildArrangement(rootPitchClass, scale, complexityId) {
         ...chord,
         id: key,
         quality,
+        rootPitchClass: chordRootPitchClass,
         name: getChordName(chordRootPitchClass, quality),
         formula: CHORD_QUALITIES[quality]?.formula ?? '',
         tags: [...new Set([...(chord.tags ?? []), isInside ? 'scale tone' : 'borrowed'])],

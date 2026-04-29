@@ -269,6 +269,8 @@ export function buildChordGroups(rootPitchClass, flavor, complexityId, playabili
       return {
         id: `${group.id}-${chord.numeral}`,
         name: getChordName(chordRootPitchClass, qualityId),
+        rootPitchClass: chordRootPitchClass,
+        qualityId,
         numeral: chord.numeral,
         summary: chord.summary,
         formula: quality.formula,

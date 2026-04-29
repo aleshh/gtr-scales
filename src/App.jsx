@@ -3,12 +3,14 @@ import './App.css'
 import {
   ROOT_OPTIONS,
   SCALE_LIBRARY,
+  getDegreeLabel,
   getScaleFormula,
   getPitchCollectionLabels,
 } from './data/scales'
 import {
   CHORD_COMPLEXITY_OPTIONS,
   CHORD_FLAVOR_LIBRARY,
+  CHORD_QUALITIES,
 } from './data/chords'
 import {
   ARRANGEMENT_COMPLEXITY_OPTIONS,
@@ -30,9 +32,11 @@ const DEFAULT_QUERY_STATE = {
   flavor: 'major',
   complexity: 'sevenths',
   arrangementComplexity: 'folk-rock',
+  instrument: 'guitar',
 }
 
 const VALID_MODES = new Set(['scales', 'chords', 'arrangement'])
+const VALID_INSTRUMENTS = new Set(['guitar', 'piano'])
 const VALID_ROOTS = new Set(ROOT_OPTIONS.map((option) => option.label))
 const VALID_SCALES = new Set(SCALE_LIBRARY.map((item) => item.id))
 const VALID_FLAVORS = new Set(CHORD_FLAVOR_LIBRARY.map((item) => item.id))
@@ -49,6 +53,7 @@ function readQueryState(search = '') {
 
   return {
     mode: getValidQueryValue(params, 'mode', VALID_MODES, DEFAULT_QUERY_STATE.mode),
+    instrument: getValidQueryValue(params, 'instrument', VALID_INSTRUMENTS, DEFAULT_QUERY_STATE.instrument),
     root: getValidQueryValue(params, 'root', VALID_ROOTS, DEFAULT_QUERY_STATE.root),
     scale: getValidQueryValue(params, 'scale', VALID_SCALES, DEFAULT_QUERY_STATE.scale),
     flavor: getValidQueryValue(params, 'flavor', VALID_FLAVORS, DEFAULT_QUERY_STATE.flavor),
@@ -56,6 +61,16 @@ function readQueryState(search = '') {
     arrangementComplexity: getValidQueryValue(params, 'arrangementComplexity', VALID_ARRANGEMENT_COMPLEXITIES, DEFAULT_QUERY_STATE.arrangementComplexity),
   }
 }
+
+const PIANO_WHITE_KEY_PITCH_CLASSES = [0, 2, 4, 5, 7, 9, 11]
+const PIANO_BLACK_KEY_LAYOUT = [
+  { pitchClass: 1, afterWhiteIndex: 0 },
+  { pitchClass: 3, afterWhiteIndex: 1 },
+  { pitchClass: 6, afterWhiteIndex: 3 },
+  { pitchClass: 8, afterWhiteIndex: 4 },
+  { pitchClass: 10, afterWhiteIndex: 5 },
+]
+const PIANO_KEY_LABELS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
 
 function groupItemsByFamily(items) {
   return items.reduce((groups, item) => {
@@ -174,8 +189,77 @@ function FretboardChart({
   )
 }
 
+function PianoKeyboardChart({
+  title,
+  subtitle,
+  pitchClasses,
+  rootPitchClass,
+  labelsByPitchClass = {},
+  compact = false,
+}) {
+  const activePitchClasses = new Set(pitchClasses)
+  const whiteKeys = Array.from({ length: 14 }, (_, index) => ({
+    index,
+    pitchClass: PIANO_WHITE_KEY_PITCH_CLASSES[index % PIANO_WHITE_KEY_PITCH_CLASSES.length],
+  }))
+  const blackKeys = Array.from({ length: 2 }, (_, octaveIndex) => (
+    PIANO_BLACK_KEY_LAYOUT.map((key) => ({
+      ...key,
+      index: octaveIndex * PIANO_WHITE_KEY_PITCH_CLASSES.length + key.afterWhiteIndex,
+      pitchClass: key.pitchClass,
+    }))
+  )).flat()
+
+  function renderPianoKey(key, color) {
+    const isActive = activePitchClasses.has(key.pitchClass)
+    const isRoot = key.pitchClass === rootPitchClass
+    const label = labelsByPitchClass[key.pitchClass]
+    const noteLabel = PIANO_KEY_LABELS[key.pitchClass]
+
+    return (
+      <div
+        className={`piano-key-wrap is-${color}`}
+        key={`${title}-${color}-${key.index}-${key.pitchClass}`}
+        style={{ '--key-index': key.index }}
+      >
+        <div className="piano-note-label">{noteLabel}</div>
+        <div
+          className={`piano-key is-${color}${isActive ? ' is-active' : ''}${isRoot ? ' is-root' : ''}`}
+          title={isActive ? `${noteLabel} · degree ${label}` : noteLabel}
+          aria-label={isActive ? `${noteLabel}, degree ${label}` : noteLabel}
+        >
+          {isActive ? <span>{label}</span> : null}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <article className={`chart-card piano-card${compact ? ' is-compact' : ''}`}>
+      <div className="chart-heading">
+        <div>
+          <h3>{title}</h3>
+          <p>{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="piano-scroll">
+        <div className="piano-keyboard" aria-label={title}>
+          <div className="piano-white-keys">
+            {whiteKeys.map((key) => renderPianoKey(key, 'white'))}
+          </div>
+          <div className="piano-black-keys">
+            {blackKeys.map((key) => renderPianoKey(key, 'black'))}
+          </div>
+        </div>
+      </div>
+    </article>
+  )
+}
+
 function App() {
   const [mode, setMode] = useState(() => readQueryState(window.location.search).mode)
+  const [instrument, setInstrument] = useState(() => readQueryState(window.location.search).instrument)
   const [rootLabel, setRootLabel] = useState(() => readQueryState(window.location.search).root)
   const [scaleId, setScaleId] = useState(() => readQueryState(window.location.search).scale)
   const [flavorId, setFlavorId] = useState(() => readQueryState(window.location.search).flavor)
@@ -192,6 +276,10 @@ function App() {
   const flavor = CHORD_FLAVOR_LIBRARY.find((item) => item.id === flavorId) ?? CHORD_FLAVOR_LIBRARY[0]
   const complexity = CHORD_COMPLEXITY_OPTIONS.find((item) => item.id === complexityId) ?? CHORD_COMPLEXITY_OPTIONS[1]
   const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId)
+  const scalePitchClasses = scale.intervals.map((interval) => (root.pitchClass + interval) % 12)
+  const scaleLabelsByPitchClass = Object.fromEntries(
+    scale.intervals.map((interval) => [(root.pitchClass + interval) % 12, getDegreeLabel(interval, scale)]),
+  )
   const rows = buildFretboardRows(root.pitchClass, scale, MAX_FRET)
   const fullNeckFrets = getVisibleFrets(0, MAX_FRET + 1, MAX_FRET)
   const positionWindows = buildPositionWindows(rows, root.pitchClass)
@@ -219,6 +307,7 @@ function App() {
     const params = new URLSearchParams(window.location.search)
 
     params.set('mode', mode)
+    params.set('instrument', instrument)
     params.set('root', rootLabel)
     params.set('scale', scaleId)
     params.set('flavor', flavorId)
@@ -238,13 +327,14 @@ function App() {
 
     const nextUrl = `${window.location.pathname}?${nextSearch}${window.location.hash}`
     window.history.replaceState(null, '', nextUrl)
-  }, [mode, rootLabel, scaleId, flavorId, complexityId, arrangementComplexityId])
+  }, [mode, instrument, rootLabel, scaleId, flavorId, complexityId, arrangementComplexityId])
 
   useEffect(() => {
     function syncFromUrl() {
       const nextState = readQueryState(window.location.search)
 
       setMode(nextState.mode)
+      setInstrument(nextState.instrument)
       setRootLabel(nextState.root)
       setScaleId(nextState.scale)
       setFlavorId(nextState.flavor)
@@ -264,6 +354,23 @@ function App() {
       <section className="control-panel">
         <p className="eyebrow control-eyebrow">Guitar scale and chord fingering chart generator</p>
         <p className="control-intro">{controlIntro}</p>
+
+        <div className="instrument-toggle" role="tablist" aria-label="Instrument">
+          <button
+            className={instrument === 'guitar' ? 'is-active' : ''}
+            type="button"
+            onClick={() => setInstrument('guitar')}
+          >
+            Guitar
+          </button>
+          <button
+            className={instrument === 'piano' ? 'is-active' : ''}
+            type="button"
+            onClick={() => setInstrument('piano')}
+          >
+            Piano
+          </button>
+        </div>
 
         <div className="mode-toggle" role="tablist" aria-label="View mode">
           <button
@@ -405,15 +512,26 @@ function App() {
       {mode === 'scales' ? (
         <>
           <section className="chart-section">
-            <FretboardChart
-              title="Complete neck map"
-              subtitle="All scale tones through the 15th fret."
-              frets={fullNeckFrets}
-              rows={rows}
-            />
+            {instrument === 'guitar' ? (
+              <FretboardChart
+                title="Complete neck map"
+                subtitle="All scale tones through the 15th fret."
+                frets={fullNeckFrets}
+                rows={rows}
+              />
+            ) : (
+              <PianoKeyboardChart
+                title="Keyboard map"
+                subtitle="Scale tones across two octaves."
+                pitchClasses={scalePitchClasses}
+                rootPitchClass={root.pitchClass}
+                labelsByPitchClass={scaleLabelsByPitchClass}
+              />
+            )}
           </section>
 
-          <section className="positions-section">
+          {instrument === 'guitar' ? (
+            <section className="positions-section">
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Practice positions</p>
@@ -448,6 +566,7 @@ function App() {
               )}
             </div>
           </section>
+          ) : null}
         </>
       ) : mode === 'chords' ? (
         <section className="chord-section">
@@ -488,8 +607,9 @@ function App() {
                         </div>
                       </div>
 
-                      <div className="voicing-grid">
-                        {row.voicings.length > 0 ? (
+                      {instrument === 'guitar' ? (
+                        <div className="voicing-grid">
+                          {row.voicings.length > 0 ? (
                           row.voicings.map((voicing) => (
                             <FretboardChart
                               key={voicing.id}
@@ -516,7 +636,17 @@ function App() {
                             </div>
                           </article>
                         )}
-                      </div>
+                        </div>
+                      ) : (
+                        <PianoKeyboardChart
+                          title={`${row.name} keyboard tones`}
+                          subtitle={row.formula}
+                          pitchClasses={Object.keys(CHORD_QUALITIES[row.qualityId]?.toneLabels ?? {}).map((interval) => (row.rootPitchClass + Number(interval)) % 12)}
+                          rootPitchClass={row.rootPitchClass}
+                          labelsByPitchClass={Object.fromEntries(Object.entries(CHORD_QUALITIES[row.qualityId]?.toneLabels ?? {}).map(([interval, label]) => [(row.rootPitchClass + Number(interval)) % 12, label]))}
+                          compact
+                        />
+                      )}
                     </article>
                   ))}
                 </div>
@@ -593,19 +723,30 @@ function App() {
 
                 {showArrangementFingerings ? (
                   <div className="voicing-grid">
-                    {selectedArrangementChord.voicings.map((voicing) => (
-                      <FretboardChart
-                        key={voicing.id}
-                        title={voicing.title}
-                        subtitle={voicing.subtitle}
-                        meta={voicing.meta}
-                        frets={voicing.frets}
-                        rows={voicing.rows}
+                    {instrument === 'guitar' ? (
+                      selectedArrangementChord.voicings.map((voicing) => (
+                        <FretboardChart
+                          key={voicing.id}
+                          title={voicing.title}
+                          subtitle={voicing.subtitle}
+                          meta={voicing.meta}
+                          frets={voicing.frets}
+                          rows={voicing.rows}
+                          compact
+                          showInlays={false}
+                          fixedFrets
+                        />
+                      ))
+                    ) : (
+                      <PianoKeyboardChart
+                        title={`${selectedArrangementChord.name} keyboard tones`}
+                        subtitle={selectedArrangementChord.formula}
+                        pitchClasses={Object.keys(CHORD_QUALITIES[selectedArrangementChord.quality]?.toneLabels ?? {}).map((interval) => (selectedArrangementChord.rootPitchClass + Number(interval)) % 12)}
+                        rootPitchClass={selectedArrangementChord.rootPitchClass}
+                        labelsByPitchClass={Object.fromEntries(Object.entries(CHORD_QUALITIES[selectedArrangementChord.quality]?.toneLabels ?? {}).map(([interval, label]) => [(selectedArrangementChord.rootPitchClass + Number(interval)) % 12, label]))}
                         compact
-                        showInlays={false}
-                        fixedFrets
                       />
-                    ))}
+                    )}
                   </div>
                 ) : null}
               </article>
@@ -658,13 +799,24 @@ function App() {
                       </div>
 
                       {openScaleCharts.has(suggestion.id) ? (
-                        <FretboardChart
-                          title="Full neck"
-                          subtitle="Suggested scale tones through fret 12."
-                          frets={suggestion.fullFrets}
-                          rows={suggestion.fullRows}
-                          compact
-                        />
+                        instrument === 'guitar' ? (
+                          <FretboardChart
+                            title="Full neck"
+                            subtitle="Suggested scale tones through fret 12."
+                            frets={suggestion.fullFrets}
+                            rows={suggestion.fullRows}
+                            compact
+                          />
+                        ) : (
+                          <PianoKeyboardChart
+                            title="Keyboard map"
+                            subtitle="Suggested scale tones across two octaves."
+                            pitchClasses={suggestion.pitchClasses}
+                            rootPitchClass={suggestion.rootPitchClass}
+                            labelsByPitchClass={suggestion.labelsByPitchClass}
+                            compact
+                          />
+                        )
                       ) : null}
                     </article>
                   ))}

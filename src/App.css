@@ -675,13 +675,15 @@
 }
 
 .arrangement-primary-scale {
-  margin: 18px 0 26px;
+  margin: 18px 0 30px;
 }
 
 .arrangement-chord-heading {
   margin-top: 0;
-  padding-top: 20px;
-  border-top: 1px solid rgba(55, 90, 71, 0.14);
+  padding-top: 28px;
+  padding-bottom: 4px;
+  border-top: 2px solid rgba(55, 90, 71, 0.22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
 }
 
 .arrangement-note {
@@ -692,14 +694,16 @@
 .arrangement-tabs {
   display: flex;
   flex-wrap: wrap;
+  align-items: flex-start;
   gap: 8px;
   padding: 4px 0 12px;
   border-bottom: 1px solid rgba(55, 90, 71, 0.14);
 }
 
 .arrangement-tabs button {
-  flex: 1 1 132px;
-  min-width: 118px;
+  flex: 0 0 144px;
+  min-width: 144px;
+  max-width: 100%;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: center;

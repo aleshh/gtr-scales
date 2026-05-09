@@ -132,7 +132,7 @@
 }
 
 .mode-toggle {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   flex: 0 0 auto;
 }
 
@@ -700,8 +700,18 @@
   border-bottom: 1px solid rgba(55, 90, 71, 0.14);
 }
 
-.arrangement-tabs button {
+.palette-chord-item {
+  position: relative;
   flex: 0 0 144px;
+  min-width: 144px;
+  max-width: 100%;
+  isolation: isolate;
+}
+
+.palette-chord-button,
+.palette-add-button {
+  flex: 0 0 144px;
+  width: 100%;
   min-width: 144px;
   max-width: 100%;
   display: grid;
@@ -719,14 +729,15 @@
   text-align: left;
 }
 
-.arrangement-tabs button.is-active {
+.palette-chord-button.is-active {
   border-color: var(--accent);
   background: var(--accent);
   color: #fff8ee;
   box-shadow: inset 0 0 0 1px rgba(47, 97, 70, 0.12), 0 12px 30px rgba(44, 77, 56, 0.14);
 }
 
-.arrangement-tabs button span {
+.palette-chord-button span,
+.palette-add-button span {
   grid-row: span 2;
   width: 26px;
   height: 26px;
@@ -739,30 +750,110 @@
   font-weight: 800;
 }
 
-.arrangement-tabs button.is-active span {
+.palette-chord-button.is-active span {
   background: rgba(255, 248, 238, 0.24);
   color: #fff8ee;
 }
 
-.arrangement-tabs button strong {
+.palette-chord-button strong,
+.palette-add-button strong {
   font-size: 1.2rem;
   line-height: 1.05;
   white-space: nowrap;
 }
 
-.arrangement-tabs button small {
+.palette-chord-button small {
   color: var(--muted);
   font-weight: 700;
 }
 
-.arrangement-tabs button.is-active strong,
-.arrangement-tabs button.is-active small {
+.palette-chord-button.is-active strong,
+.palette-chord-button.is-active small {
   color: #fff8ee;
 }
 
-.arrangement-tabs button:focus-visible {
+.palette-chord-button:focus-visible,
+.palette-add-button:focus-visible {
   outline: 2px solid rgba(77, 139, 103, 0.66);
   outline-offset: 2px;
+}
+
+.palette-remove-button {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 4;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  max-width: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  grid-template-columns: none;
+  column-gap: 0;
+  row-gap: 0;
+  padding: 0;
+  border: 1px solid rgba(47, 97, 70, 0.28);
+  border-radius: 999px;
+  background: rgba(248, 252, 247, 0.96);
+  color: var(--accent-deep);
+  font-size: 0.78rem;
+  font-weight: 900;
+  line-height: 1;
+  text-align: center;
+  box-shadow: 0 4px 10px rgba(44, 77, 56, 0.14);
+  cursor: pointer;
+}
+
+.palette-chord-button.is-active + .palette-remove-button {
+  border-color: rgba(255, 248, 238, 0.5);
+  background: #fff8ee;
+  color: var(--accent-deep);
+}
+
+.palette-add-chord {
+  flex: 0 0 224px;
+  min-width: 224px;
+  display: grid;
+  grid-template-columns: 64px 152px;
+  align-items: stretch;
+  gap: 8px;
+}
+
+.palette-add-button {
+  min-width: 64px;
+  width: 64px;
+  padding: 10px;
+  place-items: center;
+  text-align: center;
+}
+
+.palette-add-button span {
+  grid-row: auto;
+  width: 34px;
+  height: 34px;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+
+.palette-add-fields {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.palette-add-fields select {
+  width: 100%;
+  min-height: 29px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.16);
+  background: rgba(248, 252, 247, 0.94);
+  color: var(--ink);
+  font-size: 0.86rem;
 }
 
 .arrangement-detail {
@@ -770,6 +861,327 @@
   display: grid;
   gap: 14px;
   padding-top: 18px;
+}
+
+.progression-builder {
+  margin-top: 16px;
+  padding: 18px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.16);
+  background: rgba(247, 252, 246, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
+}
+
+.compose-sticky-tools {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: grid;
+  gap: 12px;
+  margin: -18px -18px 14px;
+  padding: 18px 18px 14px;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid rgba(55, 90, 71, 0.14);
+  background: rgba(241, 249, 239, 0.96);
+  backdrop-filter: blur(10px);
+}
+
+.compose-primary-scale {
+  margin-top: 22px;
+}
+
+.progression-builder-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  align-items: end;
+  margin-bottom: 16px;
+}
+
+.progression-builder-heading h2 {
+  margin: 0;
+  font-size: 1.45rem;
+}
+
+.progression-builder-heading p:last-child {
+  max-width: 620px;
+  margin: 0;
+  color: var(--muted);
+}
+
+.progression-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.typicality-control {
+  flex: 1 1 260px;
+  min-width: 220px;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px 12px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.typicality-control span {
+  grid-column: 1 / -1;
+  font-size: 0.82rem;
+}
+
+.typicality-control input {
+  accent-color: var(--accent);
+}
+
+.typicality-control strong {
+  color: var(--accent-deep);
+  white-space: nowrap;
+}
+
+.progression-actions {
+  margin-left: auto;
+}
+
+.inline-select input {
+  width: 110px;
+  min-height: 40px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.16);
+  background: rgba(248, 252, 247, 0.94);
+  color: var(--ink);
+  font-size: 1rem;
+}
+
+.button-row button:disabled,
+.progression-tick.is-occupied {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.progression-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 0;
+}
+
+.progression-status span {
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgba(248, 252, 247, 0.86);
+  border: 1px solid rgba(55, 90, 71, 0.12);
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.progression-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 10px;
+  padding: 2px 2px 8px;
+}
+
+.progression-bar {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.progression-bar-label {
+  color: var(--muted);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.progression-bar-grid {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(26px, 1fr));
+  grid-template-rows: 1fr;
+  gap: 0;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(55, 90, 71, 0.16);
+  background: rgba(248, 252, 247, 0.72);
+}
+
+.progression-tick {
+  grid-row: 1;
+  min-width: 0;
+  min-height: 58px;
+  border: 0;
+  border-right: 1px solid rgba(55, 90, 71, 0.1);
+  background: transparent;
+  cursor: pointer;
+}
+
+.progression-tick:nth-child(2n) {
+  background: rgba(194, 221, 197, 0.18);
+}
+
+.progression-tick:not(.is-occupied):hover {
+  background: rgba(77, 139, 103, 0.16);
+}
+
+.progression-event {
+  grid-row: 1;
+  position: relative;
+  z-index: 2;
+  margin: 5px;
+  min-width: 0;
+  padding: 7px 24px 7px 18px;
+  display: flex;
+  align-items: center;
+  border: 1px solid rgba(47, 97, 70, 0.22);
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff8ee;
+  box-shadow: 0 8px 18px rgba(44, 77, 56, 0.16);
+  cursor: pointer;
+  text-align: left;
+}
+
+.progression-event-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.progression-event-copy strong,
+.progression-event-copy span,
+.progression-preview strong,
+.progression-preview span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.progression-event-copy strong,
+.progression-preview strong {
+  font-size: 0.96rem;
+  line-height: 1.05;
+}
+
+.progression-event-copy span,
+.progression-preview span {
+  color: rgba(255, 248, 238, 0.78);
+  font-size: 0.74rem;
+  font-weight: 800;
+}
+
+.progression-event.is-selected {
+  outline: 2px solid rgba(33, 56, 45, 0.46);
+  outline-offset: -2px;
+  background: var(--accent-deep);
+}
+
+.progression-preview {
+  grid-row: 1;
+  z-index: 1;
+  margin: 5px;
+  min-width: 0;
+  padding: 7px 10px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  border-radius: 8px;
+  border: 2px dashed rgba(47, 97, 70, 0.5);
+  background: rgba(77, 139, 103, 0.22);
+  color: var(--accent-deep);
+  pointer-events: none;
+}
+
+.progression-preview span {
+  color: var(--muted);
+}
+
+.progression-preview.is-resize {
+  border-color: rgba(33, 56, 45, 0.62);
+  background: rgba(33, 56, 45, 0.16);
+}
+
+.progression-remove-button {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  z-index: 5;
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 248, 238, 0.24);
+  color: #fff8ee;
+  font-size: 0.74rem;
+  font-weight: 900;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.progression-resize-handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 14px;
+  cursor: ew-resize;
+}
+
+.progression-resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 15px;
+  bottom: 15px;
+  width: 3px;
+  border-radius: 3px;
+  background: rgba(255, 248, 238, 0.62);
+}
+
+.progression-resize-handle.is-start {
+  left: 0;
+}
+
+.progression-resize-handle.is-start::after {
+  left: 6px;
+}
+
+.progression-resize-handle.is-end {
+  right: 0;
+}
+
+.progression-resize-handle.is-end::after {
+  right: 6px;
+}
+
+.progression-event-editor {
+  display: grid;
+  gap: 14px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(55, 90, 71, 0.14);
+}
+
+.progression-edit-controls {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 12px 16px;
+}
+
+.progression-scale-suggestions .scale-suggestion {
+  background: rgba(248, 252, 247, 0.72);
 }
 
 .dissonance-tag.is-low {
@@ -905,6 +1317,7 @@
 
   .chord-group-heading,
   .chord-row-copy,
+  .progression-builder-heading,
   .scale-suggestion-heading,
   .section-heading {
     display: grid;
@@ -983,5 +1396,28 @@
 
   .mode-toggle {
     grid-column: 1 / -1;
+  }
+
+  .progression-builder {
+    padding: 14px;
+  }
+
+  .progression-controls,
+  .progression-edit-controls {
+    display: grid;
+    align-items: stretch;
+  }
+
+  .progression-actions {
+    margin-left: 0;
+  }
+
+  .progression-grid {
+    grid-template-columns: 1fr;
+    max-height: 560px;
+  }
+
+  .progression-bar-grid {
+    grid-template-columns: repeat(8, minmax(28px, 1fr));
   }
 }

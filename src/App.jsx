@@ -22,7 +22,7 @@ import {
   getInlayType,
   getVisibleFrets,
 } from './lib/fretboard'
-import { buildChordGroups } from './lib/chords'
+import { buildChordGroups, getChordName } from './lib/chords'
 import { buildArrangement } from './lib/arrangements'
 
 const DEFAULT_QUERY_STATE = {
@@ -35,7 +35,7 @@ const DEFAULT_QUERY_STATE = {
   instrument: 'guitar',
 }
 
-const VALID_MODES = new Set(['scales', 'chords', 'arrangement'])
+const VALID_MODES = new Set(['scales', 'chords', 'arrangement', 'compose'])
 const VALID_INSTRUMENTS = new Set(['guitar', 'piano'])
 const VALID_ROOTS = new Set(ROOT_OPTIONS.map((option) => option.label))
 const VALID_SCALES = new Set(SCALE_LIBRARY.map((item) => item.id))
@@ -71,6 +71,236 @@ const PIANO_BLACK_KEY_LAYOUT = [
   { pitchClass: 10, afterWhiteIndex: 5 },
 ]
 const PIANO_KEY_LABELS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+const PROGRESSION_TICKS_PER_BAR = 8
+const MAX_PROGRESSION_BARS = 500
+const PROGRESSION_DURATION_OPTIONS = [
+  { label: '1/8 bar', ticks: 1 },
+  { label: '1/4 bar', ticks: 2 },
+  { label: '1/2 bar', ticks: 4 },
+  { label: '1 bar', ticks: 8 },
+  { label: '2 bars', ticks: 16 },
+  { label: '4 bars', ticks: 32 },
+  { label: '8 bars', ticks: 64 },
+]
+const CUSTOM_CHORD_QUALITY_OPTIONS = [
+  'maj',
+  'min',
+  'dominant7',
+  'major7',
+  'minor7',
+  'dim',
+  'augmented',
+  'sus4',
+  'minor7Flat5',
+  'dominant9',
+  'dominant7Sus4',
+]
+
+function createProgressionEvent(chordId, startTick, durationTicks) {
+  return {
+    id: `${chordId}-${startTick}-${durationTicks}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    chordId,
+    startTick,
+    durationTicks,
+  }
+}
+
+function getProgressionTotalTicks(barCount) {
+  return barCount * PROGRESSION_TICKS_PER_BAR
+}
+
+function getEventEndTick(event) {
+  return event.startTick + event.durationTicks
+}
+
+function sortProgressionEvents(events) {
+  return [...events].sort((left, right) => left.startTick - right.startTick || left.id.localeCompare(right.id))
+}
+
+function getProgressionGaps(events, totalTicks) {
+  const gaps = []
+  let cursor = 0
+
+  sortProgressionEvents(events).forEach((event) => {
+    if (event.startTick > cursor) {
+      gaps.push({ startTick: cursor, durationTicks: event.startTick - cursor })
+    }
+
+    cursor = Math.max(cursor, getEventEndTick(event))
+  })
+
+  if (cursor < totalTicks) {
+    gaps.push({ startTick: cursor, durationTicks: totalTicks - cursor })
+  }
+
+  return gaps
+}
+
+function eventFits(events, startTick, durationTicks, totalTicks, ignoredEventId = null) {
+  const endTick = startTick + durationTicks
+
+  if (startTick < 0 || durationTicks < 1 || endTick > totalTicks) {
+    return false
+  }
+
+  return events.every((event) => (
+    event.id === ignoredEventId
+      || endTick <= event.startTick
+      || startTick >= getEventEndTick(event)
+  ))
+}
+
+function findFirstProgressionGap(events, durationTicks, totalTicks) {
+  return getProgressionGaps(events, totalTicks).find((gap) => gap.durationTicks >= durationTicks)
+}
+
+function getAvailableProgressionTicks(events, startTick, totalTicks, ignoredEventId = null) {
+  if (startTick < 0 || startTick >= totalTicks) return 0
+
+  const blockingEvent = events.find((event) => (
+    event.id !== ignoredEventId
+      && startTick >= event.startTick
+      && startTick < getEventEndTick(event)
+  ))
+
+  if (blockingEvent) return 0
+
+  const nextEvent = sortProgressionEvents(events)
+    .find((event) => event.id !== ignoredEventId && event.startTick > startTick)
+
+  return (nextEvent?.startTick ?? totalTicks) - startTick
+}
+
+function getPlacementDuration(events, startTick, requestedDurationTicks, totalTicks) {
+  const availableTicks = getAvailableProgressionTicks(events, startTick, totalTicks)
+
+  return Math.min(requestedDurationTicks, availableTicks)
+}
+
+function clampProgressionDuration(durationTicks, startTick, totalTicks) {
+  return Math.max(1, Math.min(durationTicks, totalTicks - startTick))
+}
+
+function getDurationLabel(ticks) {
+  const exact = PROGRESSION_DURATION_OPTIONS.find((option) => option.ticks === ticks)
+
+  if (exact) return exact.label
+
+  return ticks % PROGRESSION_TICKS_PER_BAR === 0
+    ? `${ticks / PROGRESSION_TICKS_PER_BAR} bars`
+    : `${ticks}/8 bar`
+}
+
+function getTypicalityLabel(value) {
+  if (value < 34) return 'Common'
+  if (value < 67) return 'Mixed'
+  return 'Unusual'
+}
+
+function getWeightedChord(chords, typicality) {
+  const unusualBias = typicality / 100
+  const weighted = chords.map((chord, index) => {
+    const dissonanceWeight = chord.dissonance.level === 'High'
+      ? 3
+      : chord.dissonance.level === 'Medium'
+        ? 1.8
+        : 1
+    const borrowedWeight = chord.tags.includes('borrowed') ? 1.8 : 1
+    const priorityWeight = Math.max(0.4, 2.4 - index * 0.18)
+    const commonWeight = chord.interval === 0 ? 2.6 : priorityWeight
+    const unusualWeight = (index + 1) * borrowedWeight * dissonanceWeight
+
+    return {
+      chord,
+      weight: commonWeight * (1 - unusualBias) + unusualWeight * unusualBias,
+    }
+  })
+  const totalWeight = weighted.reduce((sum, item) => sum + item.weight, 0)
+  let target = Math.random() * totalWeight
+
+  for (const item of weighted) {
+    target -= item.weight
+
+    if (target <= 0) {
+      return item.chord
+    }
+  }
+
+  return weighted.at(-1)?.chord ?? chords[0]
+}
+
+function getRandomDurationTicks(maxTicks, typicality) {
+  const durationPool = typicality < 34
+    ? [8, 8, 8, 4, 16]
+    : typicality < 67
+      ? [8, 4, 4, 16, 2]
+      : [1, 2, 4, 4, 8, 16]
+  const candidates = durationPool.filter((ticks) => ticks <= maxTicks)
+
+  return candidates.length > 0 ? candidates[Math.floor(Math.random() * candidates.length)] : maxTicks
+}
+
+function getDurationOptionsForTicks(currentTicks, totalTicks) {
+  const options = PROGRESSION_DURATION_OPTIONS.filter((option) => option.ticks <= totalTicks)
+
+  if (!options.some((option) => option.ticks === currentTicks)) {
+    options.push({ label: getDurationLabel(currentTicks), ticks: currentTicks })
+  }
+
+  return options.sort((left, right) => left.ticks - right.ticks)
+}
+
+function clampProgressionBars(value) {
+  const nextValue = Number(value)
+
+  if (!Number.isFinite(nextValue)) return 1
+
+  return Math.max(1, Math.min(MAX_PROGRESSION_BARS, Math.round(nextValue)))
+}
+
+function createCustomChord(rootPitchClass, qualityId) {
+  const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.maj
+
+  return {
+    id: `custom-${rootPitchClass}-${qualityId}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    interval: 0,
+    numeral: 'Custom',
+    quality: quality.id,
+    rootPitchClass,
+    name: getChordName(rootPitchClass, quality.id),
+    formula: quality.formula,
+    summary: 'User-added chord for this progression.',
+    tags: ['custom'],
+    voicings: [],
+    dissonance: {
+      level: 'Medium',
+      description: 'Custom chord. Compare its tones against the primary scale by ear and with the formula.',
+    },
+    suggestions: [],
+    isCustom: true,
+  }
+}
+
+function fillProgressionGaps(events, chords, barCount, typicality) {
+  const totalTicks = getProgressionTotalTicks(barCount)
+  const nextEvents = [...events]
+
+  getProgressionGaps(events, totalTicks).forEach((gap) => {
+    let cursor = gap.startTick
+    let remainingTicks = gap.durationTicks
+
+    while (remainingTicks > 0) {
+      const chord = getWeightedChord(chords, typicality)
+      const durationTicks = getRandomDurationTicks(remainingTicks, typicality)
+
+      nextEvents.push(createProgressionEvent(chord.id, cursor, durationTicks))
+      cursor += durationTicks
+      remainingTicks -= durationTicks
+    }
+  })
+
+  return sortProgressionEvents(nextEvents)
+}
 
 function groupItemsByFamily(items) {
   return items.reduce((groups, item) => {
@@ -268,6 +498,16 @@ function App() {
   const [showArrangementFingerings, setShowArrangementFingerings] = useState(false)
   const [openScaleCharts, setOpenScaleCharts] = useState(() => new Set())
   const [selectedArrangementChordId, setSelectedArrangementChordId] = useState(null)
+  const [progressionBars, setProgressionBars] = useState(8)
+  const [progressionEvents, setProgressionEvents] = useState([])
+  const [selectedProgressionEventId, setSelectedProgressionEventId] = useState(null)
+  const [defaultProgressionDurationTicks, setDefaultProgressionDurationTicks] = useState(PROGRESSION_TICKS_PER_BAR)
+  const [progressionTypicality, setProgressionTypicality] = useState(45)
+  const [draggingChordId, setDraggingChordId] = useState(null)
+  const [progressionPreview, setProgressionPreview] = useState(null)
+  const [customChords, setCustomChords] = useState([])
+  const [customChordRootLabel, setCustomChordRootLabel] = useState(() => readQueryState(window.location.search).root)
+  const [customChordQualityId, setCustomChordQualityId] = useState('maj')
 
   const groupedScales = groupItemsByFamily(SCALE_LIBRARY)
   const groupedFlavors = groupItemsByFamily(CHORD_FLAVOR_LIBRARY)
@@ -286,8 +526,18 @@ function App() {
   const scaleFormula = getScaleFormula(scale)
   const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
   const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id, 'full')
-  const selectedArrangementChord = arrangement.rows.find((row) => row.id === selectedArrangementChordId) ?? arrangement.rows[0]
+  const composeChordPalette = [...arrangement.rows, ...customChords]
+  const activeChordPalette = mode === 'compose' ? composeChordPalette : arrangement.rows
+  const selectedArrangementChord = activeChordPalette.find((row) => row.id === selectedArrangementChordId) ?? activeChordPalette[0]
   const selectedAlternativeScaleSuggestions = selectedArrangementChord?.suggestions.filter((suggestion) => !suggestion.isRootScale) ?? []
+  const totalProgressionTicks = getProgressionTotalTicks(progressionBars)
+  const sortedProgressionEvents = sortProgressionEvents(progressionEvents)
+  const selectedProgressionEvent = progressionEvents.find((event) => event.id === selectedProgressionEventId) ?? null
+  const selectedProgressionChord = composeChordPalette.find((row) => row.id === selectedProgressionEvent?.chordId) ?? null
+  const selectedProgressionAlternativeScales = selectedProgressionChord?.suggestions.filter((suggestion) => !suggestion.isRootScale) ?? []
+  const previewChord = composeChordPalette.find((row) => row.id === progressionPreview?.chordId) ?? null
+  const emptyProgressionTicks = getProgressionGaps(progressionEvents, totalProgressionTicks)
+    .reduce((sum, gap) => sum + gap.durationTicks, 0)
   const primaryArrangementScaleId = `primary-${root.label}-${scale.id}`
   const selectedTheoryItem = mode === 'scales'
     ? scale
@@ -298,12 +548,16 @@ function App() {
     ? `${root.label} ${scale.name}`
     : mode === 'chords'
       ? `${root.label} ${flavor.name} chords`
-      : `${root.label} ${scale.name} arrangement`
+      : mode === 'compose'
+        ? `${root.label} ${scale.name} compose`
+        : `${root.label} ${scale.name} arrangement`
   const controlIntro = mode === 'scales'
     ? 'Generate degree-labeled fretboard charts and practice positions for common modes, bebop scales, symmetric sounds, and more unusual harmonic colors. Built for practical fretboard reference, not perfectly key-spelled notation.'
     : mode === 'chords'
       ? 'Generate practical chord worlds by root and harmonic flavor, ordered for real playing and writing rather than exhaustive theory coverage. Built for musical usefulness first, not strict completeness.'
-      : 'Build a composition palette from a root and scale: likely chords first, useful grips, chord-scale choices, and a quick read on how much the root scale rubs against each chord.'
+      : mode === 'compose'
+        ? 'Build and edit chord progressions from the selected arrangement palette, with random gap-filling and per-chord scale suggestions.'
+        : 'Build a composition palette from a root and scale: likely chords first, useful grips, chord-scale choices, and a quick read on how much the root scale rubs against each chord.'
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -351,6 +605,364 @@ function App() {
     }
   }, [])
 
+  function clearProgression() {
+    setProgressionEvents([])
+    setSelectedProgressionEventId(null)
+    setProgressionPreview(null)
+  }
+
+  function changeProgressionBars(nextBarCount) {
+    const nextBars = clampProgressionBars(nextBarCount)
+    const nextTotalTicks = getProgressionTotalTicks(nextBars)
+
+    setProgressionBars(nextBars)
+    setProgressionEvents((current) => current
+      .filter((event) => event.startTick < nextTotalTicks)
+      .map((event) => ({
+        ...event,
+        durationTicks: clampProgressionDuration(event.durationTicks, event.startTick, nextTotalTicks),
+      })))
+    setSelectedProgressionEventId(null)
+  }
+
+  function addChordToProgression(chordId, requestedStartTick = null, requestedDurationTicks = defaultProgressionDurationTicks) {
+    const durationTicks = Math.min(requestedDurationTicks, totalProgressionTicks)
+    const startTick = requestedStartTick ?? findFirstProgressionGap(progressionEvents, durationTicks, totalProgressionTicks)?.startTick
+
+    if (startTick === undefined || startTick === null) {
+      return
+    }
+
+    const adjustedDurationTicks = requestedStartTick === null
+      ? clampProgressionDuration(durationTicks, startTick, totalProgressionTicks)
+      : getPlacementDuration(progressionEvents, startTick, durationTicks, totalProgressionTicks)
+
+    if (!eventFits(progressionEvents, startTick, adjustedDurationTicks, totalProgressionTicks)) {
+      return
+    }
+
+    const nextEvent = createProgressionEvent(chordId, startTick, adjustedDurationTicks)
+
+    setProgressionEvents((current) => sortProgressionEvents([...current, nextEvent]))
+    setSelectedProgressionEventId(nextEvent.id)
+    setProgressionPreview(null)
+  }
+
+  function previewChordPlacement(chordId, startTick) {
+    const durationTicks = getPlacementDuration(
+      progressionEvents,
+      startTick,
+      defaultProgressionDurationTicks,
+      totalProgressionTicks,
+    )
+
+    setProgressionPreview(durationTicks > 0
+      ? { chordId, startTick, durationTicks, mode: 'place' }
+      : null)
+  }
+
+  function previewResize(eventId, edge, startTick) {
+    const event = progressionEvents.find((candidate) => candidate.id === eventId)
+
+    if (!event) {
+      setProgressionPreview(null)
+      return
+    }
+
+    const nextStartTick = edge === 'start'
+      ? Math.min(startTick, getEventEndTick(event) - 1)
+      : event.startTick
+    const nextEndTick = edge === 'end'
+      ? Math.max(startTick + 1, event.startTick + 1)
+      : getEventEndTick(event)
+    const durationTicks = nextEndTick - nextStartTick
+
+    setProgressionPreview(eventFits(progressionEvents, nextStartTick, durationTicks, totalProgressionTicks, eventId)
+      ? { chordId: event.chordId, startTick: nextStartTick, durationTicks, mode: 'resize', eventId }
+      : null)
+  }
+
+  function resizeProgressionEvent(eventId, edge, startTick) {
+    const event = progressionEvents.find((candidate) => candidate.id === eventId)
+
+    if (!event) return
+
+    const nextStartTick = edge === 'start'
+      ? Math.min(startTick, getEventEndTick(event) - 1)
+      : event.startTick
+    const nextEndTick = edge === 'end'
+      ? Math.max(startTick + 1, event.startTick + 1)
+      : getEventEndTick(event)
+
+    updateProgressionEvent(eventId, {
+      startTick: nextStartTick,
+      durationTicks: nextEndTick - nextStartTick,
+    })
+    setProgressionPreview(null)
+  }
+
+  function updateProgressionEvent(eventId, updates) {
+    setProgressionEvents((current) => {
+      const event = current.find((candidate) => candidate.id === eventId)
+
+      if (!event) return current
+
+      const nextEvent = { ...event, ...updates }
+      const nextStartTick = Math.max(0, Math.min(nextEvent.startTick, totalProgressionTicks - 1))
+      const nextDurationTicks = clampProgressionDuration(nextEvent.durationTicks, nextStartTick, totalProgressionTicks)
+
+      if (!eventFits(current, nextStartTick, nextDurationTicks, totalProgressionTicks, eventId)) {
+        return current
+      }
+
+      return sortProgressionEvents(current.map((candidate) => (
+        candidate.id === eventId
+          ? { ...nextEvent, startTick: nextStartTick, durationTicks: nextDurationTicks }
+          : candidate
+      )))
+    })
+  }
+
+  function duplicateProgressionEvent(event) {
+    const gap = findFirstProgressionGap(progressionEvents, event.durationTicks, totalProgressionTicks)
+
+    if (!gap) return
+
+    const nextEvent = createProgressionEvent(event.chordId, gap.startTick, event.durationTicks)
+
+    setProgressionEvents((current) => sortProgressionEvents([...current, nextEvent]))
+    setSelectedProgressionEventId(nextEvent.id)
+  }
+
+  function deleteProgressionEvent(eventId) {
+    setProgressionEvents((current) => current.filter((event) => event.id !== eventId))
+    setSelectedProgressionEventId(null)
+  }
+
+  function fillRemainingProgressionSpace() {
+    if (emptyProgressionTicks < 1 || composeChordPalette.length < 1) {
+      return
+    }
+
+    setProgressionEvents((current) => fillProgressionGaps(current, composeChordPalette, progressionBars, progressionTypicality))
+  }
+
+  function addCustomChord() {
+    const customRoot = ROOT_OPTIONS.find((option) => option.label === customChordRootLabel) ?? root
+    const nextChord = createCustomChord(customRoot.pitchClass, customChordQualityId)
+
+    setCustomChords((current) => [...current, nextChord])
+    setSelectedArrangementChordId(nextChord.id)
+  }
+
+  function deleteCustomChord(chordId) {
+    setCustomChords((current) => current.filter((chord) => chord.id !== chordId))
+    setProgressionEvents((current) => current.filter((event) => event.chordId !== chordId))
+    setSelectedArrangementChordId((currentId) => (currentId === chordId ? null : currentId))
+  }
+
+  function getProgressionTickFromPointer(event, barStartTick) {
+    const rect = event.currentTarget.getBoundingClientRect()
+    const tickIndex = Math.max(0, Math.min(
+      PROGRESSION_TICKS_PER_BAR - 1,
+      Math.floor(((event.clientX - rect.left) / rect.width) * PROGRESSION_TICKS_PER_BAR),
+    ))
+
+    return barStartTick + tickIndex
+  }
+
+  function handleProgressionDragOver(event, barStartTick) {
+    event.preventDefault()
+
+    const startTick = getProgressionTickFromPointer(event, barStartTick)
+    const resizePayload = event.dataTransfer.getData('application/x-progression-resize')
+
+    if (resizePayload) {
+      const resize = JSON.parse(resizePayload)
+
+      event.dataTransfer.dropEffect = 'move'
+      previewResize(resize.eventId, resize.edge, startTick)
+      return
+    }
+
+    const chordId = draggingChordId || event.dataTransfer.getData('text/plain')
+
+    event.dataTransfer.dropEffect = chordId ? 'copy' : 'none'
+
+    if (chordId) {
+      previewChordPlacement(chordId, startTick)
+    }
+  }
+
+  function handleProgressionDrop(event, barStartTick) {
+    event.preventDefault()
+
+    const startTick = getProgressionTickFromPointer(event, barStartTick)
+    const resizePayload = event.dataTransfer.getData('application/x-progression-resize')
+
+    if (resizePayload) {
+      const resize = JSON.parse(resizePayload)
+
+      resizeProgressionEvent(resize.eventId, resize.edge, startTick)
+      return
+    }
+
+    const chordId = event.dataTransfer.getData('text/plain')
+
+    if (chordId) {
+      addChordToProgression(chordId, startTick)
+    }
+  }
+
+  function renderPrimaryScaleReference() {
+    return (
+      <article className="scale-suggestion arrangement-primary-scale">
+        <div className="scale-suggestion-heading">
+          <button
+            className="disclosure-icon-button"
+            type="button"
+            aria-label={openScaleCharts.has(primaryArrangementScaleId) ? `Hide ${root.label} ${scale.name} chart` : `Show ${root.label} ${scale.name} chart`}
+            aria-expanded={openScaleCharts.has(primaryArrangementScaleId)}
+            onClick={() => {
+              setOpenScaleCharts((current) => {
+                const next = new Set(current)
+
+                if (next.has(primaryArrangementScaleId)) {
+                  next.delete(primaryArrangementScaleId)
+                } else {
+                  next.add(primaryArrangementScaleId)
+                }
+
+                return next
+              })
+            }}
+          >
+            <span></span>
+          </button>
+
+          <div>
+            <p className="info-label">Primary scale</p>
+            <h4>{root.label} {scale.name}</h4>
+            <p>Root-scale reference for this arrangement. {scale.sound}</p>
+          </div>
+
+          <button
+            className="text-action-button"
+            type="button"
+            onClick={() => setMode('scales')}
+          >
+            Open scale
+          </button>
+        </div>
+
+        {openScaleCharts.has(primaryArrangementScaleId) ? (
+          instrument === 'guitar' ? (
+            <FretboardChart
+              title="Full neck"
+              subtitle="Primary scale tones through fret 12."
+              frets={getVisibleFrets(0, 13, 12)}
+              rows={buildFretboardRows(root.pitchClass, scale, 12)}
+              compact
+            />
+          ) : (
+            <PianoKeyboardChart
+              title="Keyboard map"
+              subtitle="Primary scale tones across two octaves."
+              pitchClasses={scalePitchClasses}
+              rootPitchClass={root.pitchClass}
+              labelsByPitchClass={scaleLabelsByPitchClass}
+              compact
+            />
+          )
+        ) : null}
+      </article>
+    )
+  }
+
+  function renderChordPalette({ allowCustomChords = false } = {}) {
+    const paletteRows = allowCustomChords ? composeChordPalette : arrangement.rows
+
+    return (
+      <div className="arrangement-tabs" role="tablist" aria-label="Chord palette">
+        {paletteRows.map((row, index) => (
+          <div className="palette-chord-item" key={row.id}>
+            <button
+              className={`palette-chord-button${selectedArrangementChord?.id === row.id ? ' is-active' : ''}`}
+              type="button"
+              role="tab"
+              aria-selected={selectedArrangementChord?.id === row.id}
+              draggable
+              onDragStart={(event) => {
+                event.dataTransfer.setData('text/plain', row.id)
+                event.dataTransfer.effectAllowed = 'copy'
+                setDraggingChordId(row.id)
+                setSelectedArrangementChordId(row.id)
+              }}
+              onDragEnd={() => {
+                setDraggingChordId(null)
+                setProgressionPreview(null)
+              }}
+              onClick={() => setSelectedArrangementChordId(row.id)}
+            >
+              <span>{index + 1}</span>
+              <strong>{row.name}</strong>
+              <small>{row.numeral}</small>
+            </button>
+
+            {row.isCustom ? (
+              <button
+                className="palette-remove-button"
+                type="button"
+                aria-label={`Remove ${row.name} from palette`}
+                onClick={() => deleteCustomChord(row.id)}
+              >
+                x
+              </button>
+            ) : null}
+          </div>
+        ))}
+
+        {allowCustomChords ? (
+          <div className="palette-add-chord">
+            <button
+              className="palette-add-button"
+              type="button"
+              aria-label="Add chord"
+              title="Add chord"
+              onClick={addCustomChord}
+            >
+              <span>+</span>
+            </button>
+            <div className="palette-add-fields">
+              <select
+                aria-label="Custom chord root"
+                value={customChordRootLabel}
+                onChange={(event) => setCustomChordRootLabel(event.target.value)}
+              >
+                {ROOT_OPTIONS.map((option) => (
+                  <option key={option.label} value={option.label}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <select
+                aria-label="Custom chord quality"
+                value={customChordQualityId}
+                onChange={(event) => setCustomChordQualityId(event.target.value)}
+              >
+                {CUSTOM_CHORD_QUALITY_OPTIONS.map((qualityId) => (
+                  <option key={qualityId} value={qualityId}>
+                    {CHORD_QUALITIES[qualityId]?.suffix || 'major'}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
   return (
     <main className="app-shell">
       <section className="control-panel">
@@ -397,12 +1009,26 @@ function App() {
             >
               Arrangement
             </button>
+            <button
+              className={mode === 'compose' ? 'is-active' : ''}
+              type="button"
+              onClick={() => setMode('compose')}
+            >
+              Compose
+            </button>
           </div>
 
           <div className="control-selectors">
             <label className="control-field">
               <span>Root note</span>
-              <select value={root.label} onChange={(event) => setRootLabel(event.target.value)}>
+              <select
+                value={root.label}
+                onChange={(event) => {
+                  setRootLabel(event.target.value)
+                  setCustomChordRootLabel(event.target.value)
+                  clearProgression()
+                }}
+              >
                 {ROOT_OPTIONS.map((option) => (
                   <option key={option.label} value={option.label}>
                     {option.label}
@@ -411,10 +1037,16 @@ function App() {
               </select>
             </label>
 
-            {mode === 'scales' || mode === 'arrangement' ? (
+            {mode === 'scales' || mode === 'arrangement' || mode === 'compose' ? (
               <label className="control-field">
                 <span>Mode / scale</span>
-                <select value={scale.id} onChange={(event) => setScaleId(event.target.value)}>
+                <select
+                  value={scale.id}
+                  onChange={(event) => {
+                    setScaleId(event.target.value)
+                    clearProgression()
+                  }}
+                >
                   {Object.entries(groupedScales).map(([family, familyScales]) => (
                     <optgroup key={family} label={family}>
                       {familyScales.map((item) => (
@@ -458,10 +1090,16 @@ function App() {
               </>
             ) : null}
 
-            {mode === 'arrangement' ? (
+            {mode === 'arrangement' || mode === 'compose' ? (
               <label className="control-field">
                 <span>Complexity</span>
-                <select value={arrangement.complexity.id} onChange={(event) => setArrangementComplexityId(event.target.value)}>
+                <select
+                  value={arrangement.complexity.id}
+                  onChange={(event) => {
+                    setArrangementComplexityId(event.target.value)
+                    clearProgression()
+                  }}
+                >
                   {ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.label}
@@ -504,7 +1142,7 @@ function App() {
             </>
           ) : null}
 
-          {mode === 'arrangement' ? (
+          {mode === 'arrangement' || mode === 'compose' ? (
             <div className="summary-chip">
               <span>Palette</span>
               <strong>{arrangement.complexity.label}</strong>
@@ -660,107 +1298,361 @@ function App() {
         </section>
       ) : (
         <section className="arrangement-section">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Arrangement mode</p>
-              <h2>Primary scale</h2>
-            </div>
-            <p>
-              Start from the selected root and scale, then compare the chord palette against this
-              reference collection.
-            </p>
-          </div>
-
-          <article className="scale-suggestion arrangement-primary-scale">
-            <div className="scale-suggestion-heading">
-              <button
-                className="disclosure-icon-button"
-                type="button"
-                aria-label={openScaleCharts.has(primaryArrangementScaleId) ? `Hide ${root.label} ${scale.name} chart` : `Show ${root.label} ${scale.name} chart`}
-                aria-expanded={openScaleCharts.has(primaryArrangementScaleId)}
-                onClick={() => {
-                  setOpenScaleCharts((current) => {
-                    const next = new Set(current)
-
-                    if (next.has(primaryArrangementScaleId)) {
-                      next.delete(primaryArrangementScaleId)
-                    } else {
-                      next.add(primaryArrangementScaleId)
-                    }
-
-                    return next
-                  })
-                }}
-              >
-                <span></span>
-              </button>
-
-              <div>
-                <p className="info-label">Primary scale</p>
-                <h4>{root.label} {scale.name}</h4>
-                <p>Root-scale reference for this arrangement. {scale.sound}</p>
+          {mode === 'arrangement' ? (
+            <>
+              <div className="section-heading">
+                <div>
+                  <p className="eyebrow">Arrangement mode</p>
+                  <h2>Primary scale</h2>
+                </div>
+                <p>
+                  Start from the selected root and scale, then compare the chord palette against
+                  this reference collection.
+                </p>
               </div>
 
-              <button
-                className="text-action-button"
-                type="button"
-                onClick={() => setMode('scales')}
-              >
-                Open scale
-              </button>
+              {renderPrimaryScaleReference()}
+
+              {renderChordPalette()}
+            </>
+          ) : null}
+
+          {mode === 'compose' ? (
+          <section className="progression-builder">
+            <div className="compose-sticky-tools">
+              {renderChordPalette({ allowCustomChords: true })}
+
+              <div className="progression-controls">
+              <label className="inline-select">
+                <span>Length</span>
+                <input
+                  type="number"
+                  min="1"
+                  max={MAX_PROGRESSION_BARS}
+                  value={progressionBars}
+                  onChange={(event) => changeProgressionBars(Number(event.target.value))}
+                />
+              </label>
+
+              <label className="inline-select">
+                <span>New chord length</span>
+                <select
+                  value={defaultProgressionDurationTicks}
+                  onChange={(event) => setDefaultProgressionDurationTicks(Number(event.target.value))}
+                >
+                  {PROGRESSION_DURATION_OPTIONS.map((option) => (
+                    <option key={option.ticks} value={option.ticks}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="typicality-control">
+                <span>Typicality</span>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={progressionTypicality}
+                  onChange={(event) => setProgressionTypicality(Number(event.target.value))}
+                />
+                <strong>{getTypicalityLabel(progressionTypicality)}</strong>
+              </label>
+
+                <div className="button-row progression-actions">
+                  <button
+                    type="button"
+                    onClick={() => addChordToProgression(selectedArrangementChord.id)}
+                    disabled={!selectedArrangementChord || emptyProgressionTicks < 1}
+                  >
+                    Add selected chord
+                  </button>
+                  <button
+                    type="button"
+                    onClick={fillRemainingProgressionSpace}
+                    disabled={emptyProgressionTicks < 1}
+                  >
+                    Random fill empty space
+                  </button>
+                  <button
+                    type="button"
+                    onClick={clearProgression}
+                    disabled={progressionEvents.length < 1}
+                  >
+                    Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="progression-status">
+                <span>{sortedProgressionEvents.length} chords</span>
+                <span>{emptyProgressionTicks / PROGRESSION_TICKS_PER_BAR} empty bars</span>
+                <span>{getTypicalityLabel(progressionTypicality).toLowerCase()} generation</span>
+              </div>
             </div>
 
-            {openScaleCharts.has(primaryArrangementScaleId) ? (
-              instrument === 'guitar' ? (
-                <FretboardChart
-                  title="Full neck"
-                  subtitle="Primary scale tones through fret 12."
-                  frets={getVisibleFrets(0, 13, 12)}
-                  rows={buildFretboardRows(root.pitchClass, scale, 12)}
-                  compact
-                />
-              ) : (
-                <PianoKeyboardChart
-                  title="Keyboard map"
-                  subtitle="Primary scale tones across two octaves."
-                  pitchClasses={scalePitchClasses}
-                  rootPitchClass={root.pitchClass}
-                  labelsByPitchClass={scaleLabelsByPitchClass}
-                  compact
-                />
-              )
+            <div className="progression-grid" aria-label="Progression grid">
+              {Array.from({ length: progressionBars }, (_, barIndex) => {
+                const barStartTick = barIndex * PROGRESSION_TICKS_PER_BAR
+                const barEndTick = barStartTick + PROGRESSION_TICKS_PER_BAR
+                const eventsInBar = sortedProgressionEvents.filter((event) => (
+                  event.startTick < barEndTick && getEventEndTick(event) > barStartTick
+                ))
+                const previewInBar = progressionPreview
+                  && progressionPreview.startTick < barEndTick
+                  && progressionPreview.startTick + progressionPreview.durationTicks > barStartTick
+                  ? progressionPreview
+                  : null
+
+                return (
+                  <div className="progression-bar" key={`bar-${barIndex + 1}`}>
+                    <div className="progression-bar-label">Bar {barIndex + 1}</div>
+                    <div
+                      className="progression-bar-grid"
+                      onDragOver={(event) => handleProgressionDragOver(event, barStartTick)}
+                      onDrop={(event) => handleProgressionDrop(event, barStartTick)}
+                      onDragLeave={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget)) {
+                          setProgressionPreview(null)
+                        }
+                      }}
+                    >
+                      {Array.from({ length: PROGRESSION_TICKS_PER_BAR }, (_, tickIndex) => {
+                        const startTick = barStartTick + tickIndex
+                        const isOccupied = sortedProgressionEvents.some((event) => (
+                          startTick >= event.startTick && startTick < getEventEndTick(event)
+                        ))
+
+                        return (
+                          <button
+                            className={`progression-tick${isOccupied ? ' is-occupied' : ''}`}
+                            type="button"
+                            key={`bar-${barIndex + 1}-tick-${tickIndex + 1}`}
+                            aria-label={`Bar ${barIndex + 1}, eighth ${tickIndex + 1}`}
+                            style={{ gridColumn: tickIndex + 1 }}
+                            onClick={() => {
+                              if (!isOccupied && selectedArrangementChord) {
+                                addChordToProgression(selectedArrangementChord.id, startTick)
+                              }
+                            }}
+                          ></button>
+                        )
+                      })}
+
+                      {previewInBar && previewChord ? (() => {
+                        const previewStartTick = Math.max(previewInBar.startTick, barStartTick)
+                        const previewEndTick = Math.min(previewInBar.startTick + previewInBar.durationTicks, barEndTick)
+
+                        return (
+                          <div
+                            className={`progression-preview is-${previewInBar.mode}`}
+                            style={{
+                              gridColumn: `${previewStartTick - barStartTick + 1} / ${previewEndTick - barStartTick + 1}`,
+                            }}
+                          >
+                            <strong>{previewChord.name}</strong>
+                            <span>{getDurationLabel(previewInBar.durationTicks)}</span>
+                          </div>
+                        )
+                      })() : null}
+
+                      {eventsInBar.map((event) => {
+                        const chord = composeChordPalette.find((row) => row.id === event.chordId)
+                        const segmentStartTick = Math.max(event.startTick, barStartTick)
+                        const segmentEndTick = Math.min(getEventEndTick(event), barEndTick)
+                        const gridColumnStart = segmentStartTick - barStartTick + 1
+                        const gridColumnEnd = segmentEndTick - barStartTick + 1
+                        const isFirstSegment = segmentStartTick === event.startTick
+                        const isLastSegment = segmentEndTick === getEventEndTick(event)
+
+                        if (!chord) return null
+
+                        return (
+                          <div
+                            className={`progression-event${selectedProgressionEventId === event.id ? ' is-selected' : ''}`}
+                            role="button"
+                            tabIndex="0"
+                            aria-label={`Select ${chord.name} from bar ${Math.floor(event.startTick / PROGRESSION_TICKS_PER_BAR) + 1}`}
+                            key={`${event.id}-bar-${barIndex + 1}`}
+                            style={{
+                              gridColumn: `${gridColumnStart} / ${gridColumnEnd}`,
+                            }}
+                            onClick={() => {
+                              setSelectedProgressionEventId(event.id)
+                              setSelectedArrangementChordId(chord.id)
+                            }}
+                            onKeyDown={(keyboardEvent) => {
+                              if (keyboardEvent.key === 'Enter' || keyboardEvent.key === ' ') {
+                                keyboardEvent.preventDefault()
+                                setSelectedProgressionEventId(event.id)
+                                setSelectedArrangementChordId(chord.id)
+                              }
+                            }}
+                          >
+                            {isFirstSegment ? (
+                              <button
+                                className="progression-remove-button"
+                                type="button"
+                                aria-label={`Remove ${chord.name} from bar ${Math.floor(event.startTick / PROGRESSION_TICKS_PER_BAR) + 1}`}
+                                onClick={(clickEvent) => {
+                                  clickEvent.stopPropagation()
+                                  deleteProgressionEvent(event.id)
+                                }}
+                              >
+                                x
+                              </button>
+                            ) : null}
+
+                            {isFirstSegment ? (
+                              <span
+                                className="progression-resize-handle is-start"
+                                draggable
+                                role="separator"
+                                aria-label={`Resize start of ${chord.name}`}
+                                onDragStart={(dragEvent) => {
+                                  dragEvent.stopPropagation()
+                                  dragEvent.dataTransfer.setData('application/x-progression-resize', JSON.stringify({
+                                    eventId: event.id,
+                                    edge: 'start',
+                                  }))
+                                  dragEvent.dataTransfer.effectAllowed = 'move'
+                                }}
+                                onDragEnd={() => setProgressionPreview(null)}
+                              ></span>
+                            ) : null}
+
+                            <div className="progression-event-copy">
+                              <strong>{chord.name}</strong>
+                              <span>{chord.numeral}</span>
+                            </div>
+
+                            {isLastSegment ? (
+                              <span
+                                className="progression-resize-handle is-end"
+                                draggable
+                                role="separator"
+                                aria-label={`Resize end of ${chord.name}`}
+                                onDragStart={(dragEvent) => {
+                                  dragEvent.stopPropagation()
+                                  dragEvent.dataTransfer.setData('application/x-progression-resize', JSON.stringify({
+                                    eventId: event.id,
+                                    edge: 'end',
+                                  }))
+                                  dragEvent.dataTransfer.effectAllowed = 'move'
+                                }}
+                                onDragEnd={() => setProgressionPreview(null)}
+                              ></span>
+                            ) : null}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {selectedProgressionEvent && selectedProgressionChord ? (
+              <article className="progression-event-editor">
+                <div className="chord-row-copy">
+                  <div className="chord-row-title">
+                    <h3>{selectedProgressionChord.name}</h3>
+                    <p>
+                      Starts at bar {Math.floor(selectedProgressionEvent.startTick / PROGRESSION_TICKS_PER_BAR) + 1},
+                      eighth {(selectedProgressionEvent.startTick % PROGRESSION_TICKS_PER_BAR) + 1} · {getDurationLabel(selectedProgressionEvent.durationTicks)}
+                    </p>
+                  </div>
+
+                  <div className="chord-row-tags">
+                    <span className="mini-tag">{selectedProgressionChord.numeral}</span>
+                    <span className={`mini-tag dissonance-tag is-${selectedProgressionChord.dissonance.level.toLowerCase()}`}>
+                      {selectedProgressionChord.dissonance.level} dissonance
+                    </span>
+                    {selectedProgressionChord.tags.slice(0, 3).map((tag) => (
+                      <span className="mini-tag" key={`progression-${selectedProgressionEvent.id}-${tag}`}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="progression-edit-controls">
+                  <label className="inline-select">
+                    <span>Duration</span>
+                    <select
+                      value={selectedProgressionEvent.durationTicks}
+                      onChange={(event) => updateProgressionEvent(selectedProgressionEvent.id, {
+                        durationTicks: Number(event.target.value),
+                      })}
+                    >
+                      {getDurationOptionsForTicks(selectedProgressionEvent.durationTicks, totalProgressionTicks)
+                        .map((option) => (
+                          <option key={option.ticks} value={option.ticks}>
+                            {option.label}
+                          </option>
+                        ))}
+                    </select>
+                  </label>
+
+                  <div className="button-row">
+                    <button
+                      type="button"
+                      onClick={() => updateProgressionEvent(selectedProgressionEvent.id, {
+                        startTick: selectedProgressionEvent.startTick - 1,
+                      })}
+                    >
+                      Move left
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateProgressionEvent(selectedProgressionEvent.id, {
+                        startTick: selectedProgressionEvent.startTick + 1,
+                      })}
+                    >
+                      Move right
+                    </button>
+                    <button type="button" onClick={() => duplicateProgressionEvent(selectedProgressionEvent)}>
+                      Duplicate
+                    </button>
+                    <button type="button" onClick={() => deleteProgressionEvent(selectedProgressionEvent.id)}>
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div className="scale-suggestions progression-scale-suggestions">
+                  <p className="info-label">Scales for this chord</p>
+                  <div className="scale-suggestion-list">
+                    <article className="scale-suggestion">
+                      <div>
+                        <h4>{root.label} {scale.name}</h4>
+                        <p>{selectedProgressionChord.dissonance.description}</p>
+                      </div>
+                    </article>
+
+                    {selectedProgressionAlternativeScales.map((suggestion) => (
+                      <article className="scale-suggestion" key={`progression-${selectedProgressionEvent.id}-${suggestion.id}`}>
+                        <div>
+                          <h4>{suggestion.name}</h4>
+                          <p>{suggestion.usage}</p>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              </article>
             ) : null}
-          </article>
+          </section>
+          ) : null}
 
-          <div className="section-heading arrangement-chord-heading">
-            <div>
-              <p className="eyebrow">Composition chords</p>
-              <h2>Likely composition chords</h2>
+          {mode === 'compose' ? (
+            <div className="compose-primary-scale">
+              {renderPrimaryScaleReference()}
             </div>
-            <p>
-              Chords are ordered from likely anchors and support chords toward stronger color,
-              substitution, and tension options.
-            </p>
-          </div>
+          ) : null}
 
-          <div className="arrangement-tabs" role="tablist" aria-label="Arrangement chords">
-            {arrangement.rows.map((row, index) => (
-              <button
-                className={selectedArrangementChord?.id === row.id ? 'is-active' : ''}
-                type="button"
-                role="tab"
-                aria-selected={selectedArrangementChord?.id === row.id}
-                key={row.id}
-                onClick={() => setSelectedArrangementChordId(row.id)}
-              >
-                <span>{index + 1}</span>
-                <strong>{row.name}</strong>
-                <small>{row.numeral}</small>
-              </button>
-            ))}
-          </div>
-
-          {selectedArrangementChord ? (
+          {mode === 'arrangement' && selectedArrangementChord ? (
             <article className="arrangement-detail">
               <div className="chord-row-copy">
                 <div className="chord-row-title">

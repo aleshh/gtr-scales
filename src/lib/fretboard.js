@@ -1,6 +1,6 @@
 import { getDegreeLabel, getPitchClassLabel } from '../data/scales'
 
-export const STRING_SET = [
+export const GUITAR_STRING_SET = [
   { label: 'E', openPitchClass: 4 },
   { label: 'B', openPitchClass: 11 },
   { label: 'G', openPitchClass: 7 },
@@ -9,7 +9,16 @@ export const STRING_SET = [
   { label: 'E', openPitchClass: 4 },
 ]
 
+export const CELLO_STRING_SET = [
+  { label: 'A', openPitchClass: 9 },
+  { label: 'D', openPitchClass: 2 },
+  { label: 'G', openPitchClass: 7 },
+  { label: 'C', openPitchClass: 0 },
+]
+
+export const STRING_SET = GUITAR_STRING_SET
 export const MAX_FRET = 15
+export const CELLO_MAX_POSITION = 12
 export const POSITION_SPAN = 5
 export const INLAY_FRETS = [3, 5, 7, 9, 12, 15]
 
@@ -22,22 +31,28 @@ export function getVisibleFrets(startFret, span = POSITION_SPAN, maxFret = MAX_F
   return Array.from({ length: endFret - startFret + 1 }, (_, index) => startFret + index)
 }
 
-export function buildFretboardRows(rootPitchClass, scale, maxFret = MAX_FRET) {
-  const scaleIntervals = new Set(scale.intervals)
+export function buildInstrumentRows({
+  rootPitchClass,
+  intervals,
+  labelsByInterval,
+  maxFret = MAX_FRET,
+  stringSet = GUITAR_STRING_SET,
+}) {
+  const activeIntervals = new Set(intervals)
 
-  return STRING_SET.map((string) => {
+  return stringSet.map((string) => {
     const notes = {}
 
     for (let fret = 0; fret <= maxFret; fret += 1) {
       const pitchClass = (string.openPitchClass + fret) % 12
       const interval = (pitchClass - rootPitchClass + 12) % 12
 
-      if (!scaleIntervals.has(interval)) {
+      if (!activeIntervals.has(interval)) {
         continue
       }
 
       notes[fret] = {
-        degree: getDegreeLabel(interval, scale),
+        degree: labelsByInterval[interval] ?? getDegreeLabel(interval),
         noteLabel: getPitchClassLabel(pitchClass),
         interval,
         isRoot: interval === 0,
@@ -48,6 +63,21 @@ export function buildFretboardRows(rootPitchClass, scale, maxFret = MAX_FRET) {
       label: string.label,
       notes,
     }
+  })
+}
+
+export function buildFretboardRows(
+  rootPitchClass,
+  scale,
+  maxFret = MAX_FRET,
+  stringSet = GUITAR_STRING_SET,
+) {
+  return buildInstrumentRows({
+    rootPitchClass,
+    intervals: scale.intervals,
+    labelsByInterval: scale.degreeLabels,
+    maxFret,
+    stringSet,
   })
 }
 
@@ -72,11 +102,17 @@ function summarizeWindow(rows, frets) {
   return { noteCount, stringCoverage }
 }
 
-export function buildPositionWindows(rows, rootPitchClass, maxFret = MAX_FRET, span = POSITION_SPAN) {
+export function buildPositionWindows(
+  rows,
+  rootPitchClass,
+  maxFret = MAX_FRET,
+  span = POSITION_SPAN,
+  stringSet = GUITAR_STRING_SET,
+) {
   const highestStart = Math.max(0, maxFret - span + 1)
   const candidateStarts = new Set()
 
-  STRING_SET.forEach((string) => {
+  stringSet.forEach((string) => {
     for (let fret = 0; fret <= maxFret; fret += 1) {
       const pitchClass = (string.openPitchClass + fret) % 12
 

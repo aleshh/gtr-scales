@@ -61,6 +61,7 @@
 
 .summary-chip span,
 .control-field span,
+.mode-field > span,
 .info-label {
   display: block;
   margin-bottom: 8px;
@@ -98,6 +99,15 @@
   gap: 12px 16px;
 }
 
+.mode-instrument-group {
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+  align-items: end;
+  gap: 12px 16px;
+  min-width: min(100%, 620px);
+}
+
 .control-selectors {
   display: flex;
   flex-wrap: wrap;
@@ -114,9 +124,17 @@
   gap: 8px;
 }
 
-.instrument-toggle,
+.mode-field {
+  display: grid;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.mode-field > span {
+  margin-bottom: 0;
+}
+
 .mode-toggle {
-  grid-column: 1 / -1;
   display: grid;
   gap: 6px;
   align-self: end;
@@ -126,17 +144,11 @@
   background: rgba(248, 252, 247, 0.94);
 }
 
-.instrument-toggle {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  flex: 0 0 auto;
-}
-
 .mode-toggle {
   grid-template-columns: repeat(4, minmax(0, 1fr));
   flex: 0 0 auto;
 }
 
-.instrument-toggle button,
 .mode-toggle button {
   min-height: 38px;
   padding: 6px 14px;
@@ -150,33 +162,69 @@
   transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
 }
 
-.instrument-toggle button.is-active,
 .mode-toggle button.is-active {
   background: var(--accent);
   color: #fff8ee;
   box-shadow: inset 0 0 0 1px rgba(47, 97, 70, 0.12);
 }
 
-.instrument-toggle button:focus-visible,
 .mode-toggle button:focus-visible {
   outline: 2px solid rgba(77, 139, 103, 0.66);
   outline-offset: 2px;
 }
 
+.control-field select,
+.inline-select select,
+.palette-add-fields select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: rgba(248, 252, 247, 0.94);
+  background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 16 16' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M4 6L8 10L12 6' stroke='%235f7467' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 16px 16px;
+  line-height: 1.2;
+}
+
 .control-field select {
   width: 100%;
+  min-height: 48px;
+  height: 48px;
   padding: 13px 14px;
+  padding-right: 42px;
   border-radius: 8px;
   border: 1px solid var(--panel-line);
-  background: rgba(248, 252, 247, 0.94);
   color: var(--ink);
   font-size: 1rem;
 }
 
+.instrument-field {
+  flex: 0 0 150px;
+  flex-basis: 150px;
+  min-width: 150px;
+}
+
 @media (max-width: 720px) {
+  .mode-instrument-group {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .mode-toggle {
+    width: 100%;
+  }
+
+  .mode-field {
+    width: 100%;
+  }
+
   .control-field {
     flex-basis: 100%;
     min-width: 0;
+  }
+
+  .instrument-field {
+    flex-basis: 100%;
   }
 }
 
@@ -202,7 +250,9 @@
 
 .button-row button:focus-visible,
 .inline-disclosure button:not(.disclosure-icon-button):focus-visible,
-.inline-select select:focus-visible {
+.inline-select select:focus-visible,
+.control-field select:focus-visible,
+.palette-add-fields select:focus-visible {
   outline: 2px solid rgba(77, 139, 103, 0.66);
   outline-offset: 2px;
 }
@@ -225,10 +275,11 @@
 
 .inline-select select {
   min-height: 40px;
+  height: 40px;
   padding: 8px 34px 8px 10px;
   border-radius: 8px;
   border: 1px solid rgba(55, 90, 71, 0.16);
-  background: rgba(248, 252, 247, 0.94);
+  background-position: right 10px center;
   color: var(--ink);
 }
 
@@ -236,6 +287,7 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
   width: 34px;
   height: 34px;
   border-radius: 999px;
@@ -848,10 +900,13 @@
 .palette-add-fields select {
   width: 100%;
   min-height: 29px;
+  height: 29px;
   padding: 4px 8px;
+  padding-right: 30px;
   border-radius: 8px;
   border: 1px solid rgba(55, 90, 71, 0.16);
-  background: rgba(248, 252, 247, 0.94);
+  background-position: right 8px center;
+  background-size: 14px 14px;
   color: var(--ink);
   font-size: 0.86rem;
 }
@@ -1392,10 +1447,6 @@
   .voicing-grid > .chart-card {
     flex-basis: 100%;
     width: 100%;
-  }
-
-  .mode-toggle {
-    grid-column: 1 / -1;
   }
 
   .progression-builder {

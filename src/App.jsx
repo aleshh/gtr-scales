@@ -16,7 +16,11 @@ import {
   ARRANGEMENT_COMPLEXITY_OPTIONS,
 } from './data/arrangements'
 import {
+  CELLO_MAX_POSITION,
+  CELLO_STRING_SET,
+  GUITAR_STRING_SET,
   MAX_FRET,
+  buildInstrumentRows,
   buildFretboardRows,
   buildPositionWindows,
   getInlayType,
@@ -36,7 +40,7 @@ const DEFAULT_QUERY_STATE = {
 }
 
 const VALID_MODES = new Set(['scales', 'chords', 'arrangement', 'compose'])
-const VALID_INSTRUMENTS = new Set(['guitar', 'piano'])
+const VALID_INSTRUMENTS = new Set(['guitar', 'piano', 'cello'])
 const VALID_ROOTS = new Set(ROOT_OPTIONS.map((option) => option.label))
 const VALID_SCALES = new Set(SCALE_LIBRARY.map((item) => item.id))
 const VALID_FLAVORS = new Set(CHORD_FLAVOR_LIBRARY.map((item) => item.id))
@@ -516,13 +520,17 @@ function App() {
   const flavor = CHORD_FLAVOR_LIBRARY.find((item) => item.id === flavorId) ?? CHORD_FLAVOR_LIBRARY[0]
   const complexity = CHORD_COMPLEXITY_OPTIONS.find((item) => item.id === complexityId) ?? CHORD_COMPLEXITY_OPTIONS[1]
   const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId)
+  const isCello = instrument === 'cello'
+  const isFingerboardInstrument = instrument === 'guitar' || isCello
+  const currentStringSet = isCello ? CELLO_STRING_SET : GUITAR_STRING_SET
+  const currentMaxFret = isCello ? CELLO_MAX_POSITION : MAX_FRET
   const scalePitchClasses = scale.intervals.map((interval) => (root.pitchClass + interval) % 12)
   const scaleLabelsByPitchClass = Object.fromEntries(
     scale.intervals.map((interval) => [(root.pitchClass + interval) % 12, getDegreeLabel(interval, scale)]),
   )
-  const rows = buildFretboardRows(root.pitchClass, scale, MAX_FRET)
-  const fullNeckFrets = getVisibleFrets(0, MAX_FRET + 1, MAX_FRET)
-  const positionWindows = buildPositionWindows(rows, root.pitchClass)
+  const rows = buildFretboardRows(root.pitchClass, scale, currentMaxFret, currentStringSet)
+  const fullNeckFrets = getVisibleFrets(0, currentMaxFret + 1, currentMaxFret)
+  const positionWindows = buildPositionWindows(rows, root.pitchClass, currentMaxFret, 5, currentStringSet)
   const scaleFormula = getScaleFormula(scale)
   const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
   const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id, 'full')
@@ -552,7 +560,7 @@ function App() {
         ? `${root.label} ${scale.name} compose`
         : `${root.label} ${scale.name} arrangement`
   const controlIntro = mode === 'scales'
-    ? 'Generate degree-labeled fretboard charts and practice positions for common modes, bebop scales, symmetric sounds, and more unusual harmonic colors. Built for practical fretboard reference, not perfectly key-spelled notation.'
+    ? 'Generate degree-labeled fingerboard charts and practice positions for common modes, bebop scales, symmetric sounds, and more unusual harmonic colors. Built for practical instrument reference, not perfectly key-spelled notation.'
     : mode === 'chords'
       ? 'Generate practical chord worlds by root and harmonic flavor, ordered for real playing and writing rather than exhaustive theory coverage. Built for musical usefulness first, not strict completeness.'
       : mode === 'compose'
@@ -814,6 +822,20 @@ function App() {
     }
   }
 
+  function getChordToneRows(chord) {
+    const qualityId = chord.qualityId ?? chord.quality
+    const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.maj
+    const intervals = Object.keys(quality.toneLabels).map(Number)
+
+    return buildInstrumentRows({
+      rootPitchClass: chord.rootPitchClass,
+      intervals,
+      labelsByInterval: quality.toneLabels,
+      maxFret: currentMaxFret,
+      stringSet: currentStringSet,
+    })
+  }
+
   function renderPrimaryScaleReference() {
     return (
       <article className="scale-suggestion arrangement-primary-scale">
@@ -856,12 +878,12 @@ function App() {
         </div>
 
         {openScaleCharts.has(primaryArrangementScaleId) ? (
-          instrument === 'guitar' ? (
+          isFingerboardInstrument ? (
             <FretboardChart
-              title="Full neck"
-              subtitle="Primary scale tones through fret 12."
-              frets={getVisibleFrets(0, 13, 12)}
-              rows={buildFretboardRows(root.pitchClass, scale, 12)}
+              title={isCello ? 'Cello fingerings' : 'Full neck'}
+              subtitle={isCello ? 'Primary scale tones with practical finger labels.' : 'Primary scale tones through the 15th fret.'}
+              frets={getVisibleFrets(0, currentMaxFret + 1, currentMaxFret)}
+              rows={buildFretboardRows(root.pitchClass, scale, currentMaxFret, currentStringSet)}
               compact
             />
           ) : (
@@ -966,56 +988,53 @@ function App() {
   return (
     <main className="app-shell">
       <section className="control-panel">
-        <p className="eyebrow control-eyebrow">Guitar scale and chord fingering chart generator</p>
+        <p className="eyebrow control-eyebrow">Scale and chord fingering chart generator</p>
         <p className="control-intro">{controlIntro}</p>
 
         <div className="control-toolbar">
-          <div className="instrument-toggle" role="tablist" aria-label="Instrument">
-            <button
-              className={instrument === 'guitar' ? 'is-active' : ''}
-              type="button"
-              onClick={() => setInstrument('guitar')}
-            >
-              Guitar
-            </button>
-            <button
-              className={instrument === 'piano' ? 'is-active' : ''}
-              type="button"
-              onClick={() => setInstrument('piano')}
-            >
-              Piano
-            </button>
-          </div>
+          <div className="mode-instrument-group">
+            <div className="mode-field">
+              <span id="mode-picker-label">Mode</span>
+              <div className="mode-toggle" role="tablist" aria-labelledby="mode-picker-label">
+                <button
+                  className={mode === 'scales' ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setMode('scales')}
+                >
+                  Scales
+                </button>
+                <button
+                  className={mode === 'chords' ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setMode('chords')}
+                >
+                  Chords
+                </button>
+                <button
+                  className={mode === 'arrangement' ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setMode('arrangement')}
+                >
+                  Arrangement
+                </button>
+                <button
+                  className={mode === 'compose' ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setMode('compose')}
+                >
+                  Compose
+                </button>
+              </div>
+            </div>
 
-          <div className="mode-toggle" role="tablist" aria-label="View mode">
-            <button
-              className={mode === 'scales' ? 'is-active' : ''}
-              type="button"
-              onClick={() => setMode('scales')}
-            >
-              Scales
-            </button>
-            <button
-              className={mode === 'chords' ? 'is-active' : ''}
-              type="button"
-              onClick={() => setMode('chords')}
-            >
-              Chords
-            </button>
-            <button
-              className={mode === 'arrangement' ? 'is-active' : ''}
-              type="button"
-              onClick={() => setMode('arrangement')}
-            >
-              Arrangement
-            </button>
-            <button
-              className={mode === 'compose' ? 'is-active' : ''}
-              type="button"
-              onClick={() => setMode('compose')}
-            >
-              Compose
-            </button>
+            <label className="control-field instrument-field">
+              <span>Instrument</span>
+              <select value={instrument} onChange={(event) => setInstrument(event.target.value)}>
+                <option value="guitar">Guitar</option>
+                <option value="piano">Piano</option>
+                <option value="cello">Cello</option>
+              </select>
+            </label>
           </div>
 
           <div className="control-selectors">
@@ -1154,10 +1173,10 @@ function App() {
       {mode === 'scales' ? (
         <>
           <section className="chart-section">
-            {instrument === 'guitar' ? (
+            {isFingerboardInstrument ? (
               <FretboardChart
-                title="Complete neck map"
-                subtitle="All scale tones through the 15th fret."
+                title={isCello ? 'Cello fingering map' : 'Complete neck map'}
+                subtitle={isCello ? 'Scale tones across cello strings with position finger labels.' : 'All scale tones through the 15th fret.'}
                 frets={fullNeckFrets}
                 rows={rows}
               />
@@ -1172,12 +1191,12 @@ function App() {
             )}
           </section>
 
-          {instrument === 'guitar' ? (
+          {isFingerboardInstrument ? (
             <section className="positions-section">
             <div className="section-heading">
               <div>
                 <p className="eyebrow">Practice positions</p>
-                <h2>Root-centered windows</h2>
+                <h2>{isCello ? 'Cello position windows' : 'Root-centered windows'}</h2>
               </div>
               <p>
                 These windows are generated from root locations across the neck, then filtered
@@ -1191,7 +1210,7 @@ function App() {
                   <FretboardChart
                     key={`${window.start}-${window.end}`}
                     title={`Position ${index + 1}`}
-                    subtitle={window.start === 0 ? 'Open position through fret 4.' : `Frets ${window.start} to ${window.end}.`}
+                    subtitle={window.start === 0 ? (isCello ? 'Open and first-position area.' : 'Open position through fret 4.') : `${isCello ? 'Positions' : 'Frets'} ${window.start} to ${window.end}.`}
                     frets={window.frets}
                     rows={rows}
                     compact
@@ -1279,6 +1298,14 @@ function App() {
                           </article>
                         )}
                         </div>
+                      ) : isCello ? (
+                        <FretboardChart
+                          title={`${row.name} cello fingerings`}
+                          subtitle={row.formula}
+                          frets={fullNeckFrets}
+                          rows={getChordToneRows(row)}
+                          compact
+                        />
                       ) : (
                         <PianoKeyboardChart
                           title={`${row.name} keyboard tones`}
@@ -1705,6 +1732,14 @@ function App() {
                           fixedFrets
                         />
                       ))
+                    ) : isCello ? (
+                      <FretboardChart
+                        title={`${selectedArrangementChord.name} cello fingerings`}
+                        subtitle={selectedArrangementChord.formula}
+                        frets={fullNeckFrets}
+                        rows={getChordToneRows(selectedArrangementChord)}
+                        compact
+                      />
                     ) : (
                       <PianoKeyboardChart
                         title={`${selectedArrangementChord.name} keyboard tones`}
@@ -1768,12 +1803,17 @@ function App() {
                       </div>
 
                       {openScaleCharts.has(suggestion.id) ? (
-                        instrument === 'guitar' ? (
+                        isFingerboardInstrument ? (
                           <FretboardChart
-                            title="Full neck"
-                            subtitle="Suggested scale tones through fret 12."
-                            frets={suggestion.fullFrets}
-                            rows={suggestion.fullRows}
+                            title={isCello ? 'Cello fingerings' : 'Full neck'}
+                            subtitle={isCello ? 'Suggested scale tones with practical finger labels.' : 'Suggested scale tones through fret 12.'}
+                            frets={fullNeckFrets}
+                            rows={buildFretboardRows(
+                              suggestion.rootPitchClass,
+                              SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale,
+                              currentMaxFret,
+                              currentStringSet,
+                            )}
                             compact
                           />
                         ) : (

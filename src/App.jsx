@@ -30,6 +30,10 @@ import {
   ALTO_RECORDER_HOLES,
   buildRecorderFingeringItems,
 } from './lib/recorder'
+import {
+  CLARINET_ROWS,
+  buildClarinetFingeringItems,
+} from './lib/clarinet'
 import { buildChordGroups, getChordName } from './lib/chords'
 import { buildArrangement } from './lib/arrangements'
 
@@ -44,7 +48,7 @@ const DEFAULT_QUERY_STATE = {
 }
 
 const VALID_MODES = new Set(['scales', 'chords', 'arrangement', 'compose'])
-const VALID_INSTRUMENTS = new Set(['guitar', 'piano', 'cello', 'alto-recorder'])
+const VALID_INSTRUMENTS = new Set(['guitar', 'piano', 'cello', 'alto-recorder', 'clarinet'])
 const VALID_ROOTS = new Set(ROOT_OPTIONS.map((option) => option.label))
 const VALID_SCALES = new Set(SCALE_LIBRARY.map((item) => item.id))
 const VALID_FLAVORS = new Set(CHORD_FLAVOR_LIBRARY.map((item) => item.id))
@@ -571,6 +575,85 @@ function RecorderFingeringChart({
   )
 }
 
+function ClarinetInstrumentDiagram({ item }) {
+  function getControlState(controlId) {
+    const rowIndex = CLARINET_ROWS.findIndex((row) => row.id === controlId)
+
+    return item.pattern[rowIndex] ?? 'open'
+  }
+
+  function renderToneHole(controlId, className) {
+    return (
+      <span
+        className={`clarinet-diagram-hole ${className} is-${getControlState(controlId)}`}
+        aria-hidden="true"
+      ></span>
+    )
+  }
+
+  function renderLever(controlId, className) {
+    return (
+      <span
+        className={`clarinet-diagram-lever ${className} is-${getControlState(controlId)}`}
+        aria-hidden="true"
+      ></span>
+    )
+  }
+
+  return (
+    <div className="clarinet-glyph" aria-label={`${item.noteLabel}, degree ${item.degree}, clarinet fingering`}>
+      {renderLever('reg', 'is-register')}
+      {renderToneHole('thumb', 'is-thumb')}
+      {renderToneHole('l1', 'is-l1')}
+      {renderToneHole('l2', 'is-l2')}
+      {renderToneHole('l3', 'is-l3')}
+      {renderLever('g-sharp', 'is-g-sharp')}
+      {renderLever('a', 'is-a-key')}
+      {renderLever('bb', 'is-bb-key')}
+      {renderToneHole('r1', 'is-r1')}
+      {renderToneHole('r2', 'is-r2')}
+      {renderToneHole('r3', 'is-r3')}
+      {renderLever('side', 'is-side')}
+      {renderLever('left-pinky', 'is-left-pinky')}
+      {renderLever('right-pinky', 'is-right-pinky')}
+    </div>
+  )
+}
+
+function ClarinetFingeringChart({
+  title,
+  subtitle,
+  items,
+  compact = false,
+}) {
+  return (
+    <article className={`chart-card clarinet-card${compact ? ' is-compact' : ''}`}>
+      <div className="chart-heading">
+        <div>
+          <h3>{title}</h3>
+          <p>{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="clarinet-diagram-grid">
+        {items.map((item) => (
+          <div
+            className={`clarinet-fingering-card${item.isRoot ? ' is-root' : ''}`}
+            key={`${title}-${item.midiNote}`}
+          >
+            <div className="clarinet-note-heading">
+              <strong>{item.noteLabel}</strong>
+              <span>{item.degree}</span>
+            </div>
+
+            <ClarinetInstrumentDiagram item={item} />
+          </div>
+        ))}
+      </div>
+    </article>
+  )
+}
+
 function App() {
   const [mode, setMode] = useState(() => readQueryState(window.location.search).mode)
   const [instrument, setInstrument] = useState(() => readQueryState(window.location.search).instrument)
@@ -602,6 +685,7 @@ function App() {
   const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId)
   const isCello = instrument === 'cello'
   const isRecorder = instrument === 'alto-recorder'
+  const isClarinet = instrument === 'clarinet'
   const isFingerboardInstrument = instrument === 'guitar' || isCello
   const currentStringSet = isCello ? CELLO_STRING_SET : GUITAR_STRING_SET
   const currentMaxFret = isCello ? CELLO_MAX_POSITION : MAX_FRET
@@ -610,6 +694,11 @@ function App() {
     scale.intervals.map((interval) => [(root.pitchClass + interval) % 12, getDegreeLabel(interval, scale)]),
   )
   const recorderScaleItems = buildRecorderFingeringItems({
+    rootPitchClass: root.pitchClass,
+    intervals: scale.intervals,
+    labelsByInterval: scale.degreeLabels,
+  })
+  const clarinetScaleItems = buildClarinetFingeringItems({
     rootPitchClass: root.pitchClass,
     intervals: scale.intervals,
     labelsByInterval: scale.degreeLabels,
@@ -934,6 +1023,18 @@ function App() {
     })
   }
 
+  function getChordToneClarinetItems(chord) {
+    const qualityId = chord.qualityId ?? chord.quality
+    const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.maj
+    const intervals = Object.keys(quality.toneLabels).map(Number)
+
+    return buildClarinetFingeringItems({
+      rootPitchClass: chord.rootPitchClass,
+      intervals,
+      labelsByInterval: quality.toneLabels,
+    })
+  }
+
   function renderPrimaryScaleReference() {
     return (
       <article className="scale-suggestion arrangement-primary-scale">
@@ -989,6 +1090,13 @@ function App() {
               title="Alto recorder fingerings"
               subtitle="Primary scale tones across the practical alto recorder range."
               items={recorderScaleItems}
+              compact
+            />
+          ) : isClarinet ? (
+            <ClarinetFingeringChart
+              title="Clarinet fingerings"
+              subtitle="Primary scale tones across the written Bb clarinet range."
+              items={clarinetScaleItems}
               compact
             />
           ) : (
@@ -1292,6 +1400,12 @@ function App() {
                 subtitle="Scale tones across the practical alto recorder range."
                 items={recorderScaleItems}
               />
+            ) : isClarinet ? (
+              <ClarinetFingeringChart
+                title="Clarinet fingering map"
+                subtitle="Scale tones across the written Bb clarinet range."
+                items={clarinetScaleItems}
+              />
             ) : (
               <PianoKeyboardChart
                 title="Keyboard map"
@@ -1423,6 +1537,13 @@ function App() {
                           title={`${row.name} alto recorder fingerings`}
                           subtitle={row.formula}
                           items={getChordToneRecorderItems(row)}
+                          compact
+                        />
+                      ) : isClarinet ? (
+                        <ClarinetFingeringChart
+                          title={`${row.name} clarinet fingerings`}
+                          subtitle={row.formula}
+                          items={getChordToneClarinetItems(row)}
                           compact
                         />
                       ) : (
@@ -1866,6 +1987,13 @@ function App() {
                         items={getChordToneRecorderItems(selectedArrangementChord)}
                         compact
                       />
+                    ) : isClarinet ? (
+                      <ClarinetFingeringChart
+                        title={`${selectedArrangementChord.name} clarinet fingerings`}
+                        subtitle={selectedArrangementChord.formula}
+                        items={getChordToneClarinetItems(selectedArrangementChord)}
+                        compact
+                      />
                     ) : (
                       <PianoKeyboardChart
                         title={`${selectedArrangementChord.name} keyboard tones`}
@@ -1947,6 +2075,17 @@ function App() {
                             title="Alto recorder fingerings"
                             subtitle="Suggested scale tones across the practical alto recorder range."
                             items={buildRecorderFingeringItems({
+                              rootPitchClass: suggestion.rootPitchClass,
+                              intervals: (SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale).intervals,
+                              labelsByInterval: (SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale).degreeLabels,
+                            })}
+                            compact
+                          />
+                        ) : isClarinet ? (
+                          <ClarinetFingeringChart
+                            title="Clarinet fingerings"
+                            subtitle="Suggested scale tones across the written Bb clarinet range."
+                            items={buildClarinetFingeringItems({
                               rootPitchClass: suggestion.rootPitchClass,
                               intervals: (SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale).intervals,
                               labelsByInterval: (SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale).degreeLabels,

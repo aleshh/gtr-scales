@@ -667,6 +667,659 @@
   border-color: #1f211b;
 }
 
+.clarinet-matrix-scroll {
+  margin-top: 18px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.clarinet-matrix {
+  display: grid;
+  grid-template-columns: 96px repeat(var(--clarinet-columns), minmax(70px, 1fr));
+  min-width: max(100%, calc(96px + var(--clarinet-columns) * 74px));
+  border: 1.5px solid rgba(34, 35, 28, 0.32);
+  background: #eef1e6;
+  color: #1f211b;
+}
+
+.clarinet-matrix-corner,
+.clarinet-column-label {
+  border-right: 1px solid rgba(34, 35, 28, 0.3);
+  border-bottom: 1px solid rgba(34, 35, 28, 0.3);
+}
+
+.clarinet-matrix-corner {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-height: 62px;
+  padding: 10px 12px;
+  background: rgba(216, 222, 204, 0.62);
+  font-size: 0.78rem;
+  line-height: 1.1;
+}
+
+.clarinet-matrix-corner span {
+  color: rgba(31, 33, 27, 0.68);
+  font-weight: 700;
+}
+
+.clarinet-column-label {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  min-height: 62px;
+  padding: 8px 6px;
+  background: rgba(243, 246, 237, 0.88);
+  text-align: center;
+}
+
+.clarinet-column-label strong {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.clarinet-column-label span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.68);
+  color: var(--degree-fill);
+  font-size: 0.8rem;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1.5px rgba(34, 35, 28, 0.24);
+}
+
+.clarinet-column-label.is-root span {
+  background: var(--accent);
+  color: #fff8ee;
+}
+
+.clarinet-row-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 38px;
+  padding: 6px 14px;
+  border-right: 1px solid rgba(34, 35, 28, 0.3);
+  background: rgba(216, 222, 204, 0.48);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.clarinet-row-label.is-hole {
+  min-height: 42px;
+  font-size: 0.92rem;
+}
+
+.clarinet-row-label.is-group-end {
+  border-bottom: 1px solid rgba(34, 35, 28, 0.3);
+}
+
+.clarinet-matrix-cell {
+  display: grid;
+  place-items: center;
+  min-height: 38px;
+  border-right: 1px solid rgba(34, 35, 28, 0.3);
+  background: rgba(247, 249, 242, 0.76);
+}
+
+.clarinet-matrix-cell.is-hole {
+  min-height: 42px;
+}
+
+.clarinet-matrix-cell.is-group-end {
+  border-bottom: 1px solid rgba(34, 35, 28, 0.3);
+}
+
+.clarinet-matrix-cell.is-root-column {
+  background: rgba(228, 237, 222, 0.78);
+}
+
+.clarinet-hole {
+  display: block;
+  width: 23px;
+  height: 23px;
+  border: 2px solid rgba(31, 33, 27, 0.88);
+  border-radius: 999px;
+  background: rgba(247, 249, 242, 0.94);
+}
+
+.clarinet-hole.is-closed {
+  background: #1f211b;
+  border-color: #1f211b;
+}
+
+.clarinet-lever {
+  display: block;
+  width: 34px;
+  height: 13px;
+  border: 2px solid rgba(31, 33, 27, 0.88);
+  border-radius: 999px;
+  background: rgba(247, 249, 242, 0.94);
+  transform: rotate(-16deg);
+}
+
+.clarinet-matrix-cell.is-pinky .clarinet-lever {
+  width: 27px;
+  height: 17px;
+  border-radius: 7px 999px 999px 7px;
+  transform: rotate(0deg);
+}
+
+.clarinet-lever.is-closed {
+  background: #1f211b;
+  border-color: #1f211b;
+}
+
+.clarinet-diagram-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.clarinet-fingering-card {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 12px 8px;
+  border: 1px solid rgba(55, 90, 71, 0.14);
+  border-radius: 8px;
+  background: rgba(247, 249, 242, 0.72);
+}
+
+.clarinet-fingering-card.is-root {
+  border-color: rgba(47, 97, 70, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(77, 139, 103, 0.18);
+}
+
+.clarinet-note-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.clarinet-note-heading strong {
+  color: var(--ink);
+  font-size: 0.98rem;
+  line-height: 1;
+}
+
+.clarinet-note-heading span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.74);
+  color: var(--degree-fill);
+  font-size: 0.78rem;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1.5px rgba(34, 35, 28, 0.24);
+}
+
+.clarinet-fingering-card.is-root .clarinet-note-heading span {
+  background: var(--accent);
+  color: #fff8ee;
+}
+
+.clarinet-diagram {
+  position: relative;
+  width: 82px;
+  height: 246px;
+  color: #20221d;
+}
+
+.clarinet-mouthpiece,
+.clarinet-barrel,
+.clarinet-body,
+.clarinet-bell,
+.clarinet-rod,
+.clarinet-ring {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 2px solid currentColor;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.clarinet-mouthpiece {
+  top: 0;
+  width: 22px;
+  height: 42px;
+  border-bottom: 0;
+  border-radius: 14px 14px 0 0;
+}
+
+.clarinet-barrel {
+  top: 38px;
+  width: 30px;
+  height: 36px;
+  border-radius: 3px;
+}
+
+.clarinet-barrel::before,
+.clarinet-barrel::after,
+.clarinet-body::before,
+.clarinet-body::after {
+  position: absolute;
+  left: -2px;
+  right: -2px;
+  height: 2px;
+  content: '';
+  background: currentColor;
+}
+
+.clarinet-barrel::before {
+  top: 7px;
+}
+
+.clarinet-barrel::after {
+  bottom: 7px;
+}
+
+.clarinet-body {
+  top: 72px;
+  width: 30px;
+  height: 132px;
+  border-radius: 2px;
+}
+
+.clarinet-body::before {
+  top: 58px;
+}
+
+.clarinet-body::after {
+  bottom: 18px;
+}
+
+.clarinet-bell {
+  top: 199px;
+  width: 58px;
+  height: 45px;
+  border-top: 0;
+  border-radius: 0 0 46px 46px;
+  clip-path: polygon(32% 0, 68% 0, 86% 90%, 50% 100%, 14% 90%);
+}
+
+.clarinet-diagram-hole,
+.clarinet-diagram-lever,
+.clarinet-rod,
+.clarinet-ring {
+  position: absolute;
+  z-index: 2;
+}
+
+.clarinet-diagram-hole {
+  width: 15px;
+  height: 15px;
+  border: 2px solid currentColor;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.clarinet-diagram-hole.is-closed {
+  background: #c71f2d;
+}
+
+.clarinet-diagram-lever {
+  border: 2px solid currentColor;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.clarinet-diagram-lever.is-closed {
+  background: #8d9189;
+}
+
+.clarinet-diagram-hole.is-thumb {
+  top: 52px;
+  left: 17px;
+  width: 13px;
+  height: 13px;
+  background: #8d9189;
+}
+
+.clarinet-diagram-hole.is-thumb.is-closed {
+  background: #c71f2d;
+}
+
+.clarinet-diagram-hole.is-l1 {
+  top: 66px;
+  left: 34px;
+}
+
+.clarinet-diagram-hole.is-l2 {
+  top: 92px;
+  left: 34px;
+}
+
+.clarinet-diagram-hole.is-l3 {
+  top: 119px;
+  left: 34px;
+  width: 20px;
+  height: 20px;
+}
+
+.clarinet-diagram-hole.is-r1 {
+  top: 156px;
+  left: 34px;
+}
+
+.clarinet-diagram-hole.is-r2 {
+  top: 182px;
+  left: 34px;
+}
+
+.clarinet-diagram-hole.is-r3 {
+  top: 211px;
+  left: 34px;
+}
+
+.clarinet-diagram-lever.is-register {
+  top: 46px;
+  left: 12px;
+  width: 11px;
+  height: 18px;
+  border-radius: 999px;
+}
+
+.clarinet-diagram-lever.is-g-sharp {
+  top: 72px;
+  left: 14px;
+  width: 12px;
+  height: 28px;
+  border-radius: 999px;
+}
+
+.clarinet-diagram-lever.is-a-key {
+  top: 61px;
+  left: 49px;
+  width: 13px;
+  height: 13px;
+  border-radius: 999px;
+}
+
+.clarinet-diagram-lever.is-bb-key {
+  top: 85px;
+  left: 57px;
+  width: 10px;
+  height: 35px;
+  border-radius: 999px;
+}
+
+.clarinet-diagram-lever.is-side {
+  top: 135px;
+  left: 54px;
+  width: 11px;
+  height: 54px;
+  border-radius: 999px;
+}
+
+.clarinet-diagram-lever.is-left-pinky {
+  top: 119px;
+  left: 11px;
+  width: 13px;
+  height: 54px;
+  border-radius: 999px;
+  transform: rotate(12deg);
+}
+
+.clarinet-diagram-lever.is-right-pinky {
+  top: 168px;
+  left: 6px;
+  width: 38px;
+  height: 13px;
+  border-radius: 999px;
+  transform: rotate(12deg);
+}
+
+.clarinet-rod {
+  width: 2px;
+  border-width: 0;
+  background: currentColor;
+}
+
+.clarinet-rod.is-upper {
+  top: 75px;
+  left: 58px;
+  height: 67px;
+}
+
+.clarinet-rod.is-lower {
+  top: 144px;
+  left: 26px;
+  height: 48px;
+}
+
+.clarinet-ring {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+}
+
+.clarinet-ring.is-upper {
+  top: 132px;
+  left: 55px;
+}
+
+.clarinet-ring.is-lower {
+  top: 137px;
+  left: 28px;
+}
+
+.clarinet-glyph {
+  position: relative;
+  width: 58px;
+  height: 258px;
+  color: rgba(33, 35, 30, 0.82);
+}
+
+.clarinet-glyph .clarinet-diagram-hole,
+.clarinet-glyph .clarinet-diagram-lever {
+  position: absolute;
+  z-index: 1;
+  border-color: rgba(33, 35, 30, 0.62);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.clarinet-glyph .clarinet-diagram-hole.is-closed {
+  border-color: rgba(33, 35, 30, 0.78);
+  background: #e64992;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-closed {
+  border-color: rgba(33, 35, 30, 0.78);
+  background: #a1a59e;
+}
+
+.clarinet-glyph .clarinet-diagram-lever {
+  border-width: 1.7px;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-register {
+  top: 0;
+  left: 6px;
+  width: 10px;
+  height: 22px;
+  border-radius: 999px 999px 60% 60%;
+}
+
+.clarinet-glyph .clarinet-diagram-hole.is-thumb {
+  top: 24px;
+  left: 5px;
+  width: 17px;
+  height: 17px;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-a-key {
+  top: 21px;
+  left: 33px;
+  width: 8px;
+  height: 22px;
+  border-radius: 999px 999px 60% 60%;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-bb-key {
+  top: 20px;
+  left: 47px;
+  width: 9px;
+  height: 30px;
+  border-radius: 999px 999px 60% 60%;
+  transform: rotate(18deg);
+}
+
+.clarinet-glyph .clarinet-diagram-hole.is-l1 {
+  top: 42px;
+  left: 27px;
+  width: 25px;
+  height: 25px;
+}
+
+.clarinet-glyph .clarinet-diagram-hole.is-l2 {
+  top: 76px;
+  left: 27px;
+  width: 25px;
+  height: 25px;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-g-sharp {
+  top: 93px;
+  left: 48px;
+  width: 17px;
+  height: 4px;
+  border-radius: 999px;
+  transform: rotate(-20deg);
+}
+
+.clarinet-glyph .clarinet-diagram-hole.is-l3 {
+  top: 110px;
+  left: 29px;
+  width: 21px;
+  height: 21px;
+}
+
+.clarinet-glyph .clarinet-diagram-hole.is-r1 {
+  top: 136px;
+  left: 29px;
+  width: 24px;
+  height: 24px;
+}
+
+.clarinet-glyph .clarinet-diagram-hole.is-r2 {
+  top: 168px;
+  left: 29px;
+  width: 24px;
+  height: 24px;
+}
+
+.clarinet-glyph .clarinet-diagram-hole.is-r3 {
+  top: 200px;
+  left: 29px;
+  width: 24px;
+  height: 24px;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-left-pinky {
+  top: 104px;
+  left: 0;
+  width: 18px;
+  height: 44px;
+  border-radius: 999px;
+  transform: rotate(17deg);
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-left-pinky::before,
+.clarinet-glyph .clarinet-diagram-lever.is-left-pinky::after {
+  position: absolute;
+  left: 4px;
+  width: 13px;
+  height: 6px;
+  border: 1.7px solid rgba(33, 35, 30, 0.62);
+  border-radius: 999px;
+  content: '';
+  background: inherit;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-left-pinky::before {
+  top: 14px;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-left-pinky::after {
+  top: 26px;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-side {
+  top: 103px;
+  left: 50px;
+  width: 15px;
+  height: 47px;
+  border-radius: 999px;
+  transform: rotate(15deg);
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-side::before,
+.clarinet-glyph .clarinet-diagram-lever.is-side::after {
+  position: absolute;
+  left: 5px;
+  width: 11px;
+  height: 28px;
+  border: 1.7px solid rgba(33, 35, 30, 0.62);
+  border-radius: 999px;
+  content: '';
+  background: inherit;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-side::before {
+  top: 16px;
+  transform: rotate(18deg);
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-side::after {
+  top: 33px;
+  transform: rotate(-18deg);
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-right-pinky {
+  top: 228px;
+  left: 6px;
+  width: 42px;
+  height: 13px;
+  border-radius: 999px;
+  transform: rotate(10deg);
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-right-pinky::before,
+.clarinet-glyph .clarinet-diagram-lever.is-right-pinky::after {
+  position: absolute;
+  left: -3px;
+  width: 40px;
+  height: 13px;
+  border: 1.7px solid rgba(33, 35, 30, 0.62);
+  border-radius: 999px;
+  content: '';
+  background: inherit;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-right-pinky::before {
+  top: 14px;
+}
+
+.clarinet-glyph .clarinet-diagram-lever.is-right-pinky::after {
+  top: 28px;
+}
+
 .fretboard-grid {
   min-width: max(100%, calc(56px + var(--fret-count) * 56px));
 }
@@ -906,6 +1559,12 @@
 }
 
 .voicing-grid > .recorder-card {
+  flex: 1 1 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.voicing-grid > .clarinet-card {
   flex: 1 1 100%;
   min-width: 0;
   width: 100%;

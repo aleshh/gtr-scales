@@ -478,6 +478,195 @@
   font-size: 0.76rem;
 }
 
+.recorder-matrix-scroll {
+  margin-top: 18px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.recorder-matrix {
+  display: grid;
+  grid-template-columns: 86px repeat(var(--recorder-columns), minmax(70px, 1fr));
+  min-width: max(100%, calc(86px + var(--recorder-columns) * 74px));
+  border: 1.5px solid rgba(34, 35, 28, 0.32);
+  background: #eee8ce;
+  color: #1f211b;
+}
+
+.recorder-matrix-corner,
+.recorder-column-label {
+  border-right: 1px solid rgba(34, 35, 28, 0.3);
+  border-bottom: 1px solid rgba(34, 35, 28, 0.3);
+}
+
+.recorder-matrix-corner {
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  min-height: 62px;
+  padding: 10px 12px;
+  background: rgba(218, 211, 183, 0.55);
+  font-size: 0.78rem;
+  line-height: 1.1;
+}
+
+.recorder-matrix-corner span {
+  color: rgba(31, 33, 27, 0.68);
+  font-weight: 700;
+}
+
+.recorder-column-label {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 6px;
+  min-height: 62px;
+  padding: 8px 6px;
+  background: rgba(244, 239, 216, 0.86);
+  text-align: center;
+}
+
+.recorder-column-label strong {
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.recorder-column-label span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.62);
+  color: var(--degree-fill);
+  font-size: 0.8rem;
+  font-weight: 800;
+  box-shadow: inset 0 0 0 1.5px rgba(34, 35, 28, 0.28);
+}
+
+.recorder-column-label.is-root span {
+  background: var(--accent);
+  color: #fff8ee;
+}
+
+.recorder-row-label {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 46px;
+  padding: 6px 14px;
+  border-right: 1px solid rgba(34, 35, 28, 0.3);
+  background: rgba(218, 211, 183, 0.42);
+  font-size: 1.05rem;
+  font-weight: 800;
+}
+
+.recorder-row-label.is-thumb-row {
+  min-height: 34px;
+  font-size: 0.9rem;
+}
+
+.recorder-row-label.is-group-end {
+  border-bottom: 1px solid rgba(34, 35, 28, 0.3);
+}
+
+.recorder-matrix-cell {
+  display: grid;
+  place-items: center;
+  min-height: 46px;
+  border-right: 1px solid rgba(34, 35, 28, 0.3);
+  background: rgba(246, 241, 219, 0.72);
+}
+
+.recorder-matrix-cell.is-thumb-row {
+  min-height: 34px;
+}
+
+.recorder-matrix-cell.is-group-end {
+  border-bottom: 1px solid rgba(34, 35, 28, 0.3);
+}
+
+.recorder-matrix-cell.is-root-column {
+  background: rgba(228, 237, 222, 0.78);
+}
+
+.recorder-hole {
+  position: relative;
+  display: block;
+  width: 24px;
+  height: 24px;
+  border: 2px solid rgba(31, 33, 27, 0.88);
+  border-radius: 999px;
+  background: rgba(245, 240, 218, 0.94);
+}
+
+.recorder-hole.is-closed {
+  background: #1f211b;
+  border-color: #1f211b;
+}
+
+.recorder-hole.is-half {
+  overflow: hidden;
+  background: rgba(245, 240, 218, 0.94);
+}
+
+.recorder-hole.is-half::before {
+  position: absolute;
+  inset: -1px 50% -1px -1px;
+  content: '';
+  background: #1f211b;
+}
+
+.recorder-matrix-cell.is-thumb-row .recorder-hole {
+  width: 15px;
+  height: 15px;
+  border-width: 1.75px;
+}
+
+.recorder-double-hole {
+  position: relative;
+  display: inline-block;
+  width: 48px;
+  height: 34px;
+  border: 2px solid rgba(31, 33, 27, 0.88);
+  border-radius: 999px;
+  background: rgba(245, 240, 218, 0.94);
+}
+
+.recorder-double-hole i {
+  position: absolute;
+  display: block;
+  border: 2px solid rgba(31, 33, 27, 0.88);
+  border-radius: 999px;
+  background: rgba(245, 240, 218, 0.94);
+}
+
+.recorder-double-hole i:first-child {
+  top: 6px;
+  left: 7px;
+  width: 17px;
+  height: 17px;
+}
+
+.recorder-double-hole i:last-child {
+  right: 7px;
+  bottom: 6px;
+  width: 11px;
+  height: 11px;
+}
+
+.recorder-double-hole.is-closed i {
+  background: #1f211b;
+  border-color: #1f211b;
+}
+
+.recorder-double-hole.is-half i:first-child {
+  background: #1f211b;
+  border-color: #1f211b;
+}
+
 .fretboard-grid {
   min-width: max(100%, calc(56px + var(--fret-count) * 56px));
 }
@@ -711,6 +900,12 @@
 }
 
 .voicing-grid > .piano-card {
+  flex: 1 1 100%;
+  min-width: 0;
+  width: 100%;
+}
+
+.voicing-grid > .recorder-card {
   flex: 1 1 100%;
   min-width: 0;
   width: 100%;

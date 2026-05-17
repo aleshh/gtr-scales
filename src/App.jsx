@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import './App.css'
 import {
   ROOT_OPTIONS,
@@ -26,6 +26,10 @@ import {
   getInlayType,
   getVisibleFrets,
 } from './lib/fretboard'
+import {
+  ALTO_RECORDER_HOLES,
+  buildRecorderFingeringItems,
+} from './lib/recorder'
 import { buildChordGroups, getChordName } from './lib/chords'
 import { buildArrangement } from './lib/arrangements'
 
@@ -40,7 +44,7 @@ const DEFAULT_QUERY_STATE = {
 }
 
 const VALID_MODES = new Set(['scales', 'chords', 'arrangement', 'compose'])
-const VALID_INSTRUMENTS = new Set(['guitar', 'piano', 'cello'])
+const VALID_INSTRUMENTS = new Set(['guitar', 'piano', 'cello', 'alto-recorder'])
 const VALID_ROOTS = new Set(ROOT_OPTIONS.map((option) => option.label))
 const VALID_SCALES = new Set(SCALE_LIBRARY.map((item) => item.id))
 const VALID_FLAVORS = new Set(CHORD_FLAVOR_LIBRARY.map((item) => item.id))
@@ -491,6 +495,82 @@ function PianoKeyboardChart({
   )
 }
 
+function RecorderFingeringChart({
+  title,
+  subtitle,
+  items,
+  compact = false,
+}) {
+  function renderHoleGlyph(state, isDoubleHole) {
+    if (isDoubleHole) {
+      return (
+        <span className={`recorder-double-hole is-${state ?? 'open'}`} aria-hidden="true">
+          <i></i>
+          <i></i>
+        </span>
+      )
+    }
+
+    return <span className={`recorder-hole is-${state ?? 'open'}`} aria-hidden="true"></span>
+  }
+
+  return (
+    <article className={`chart-card recorder-card${compact ? ' is-compact' : ''}`}>
+      <div className="chart-heading">
+        <div>
+          <h3>{title}</h3>
+          <p>{subtitle}</p>
+        </div>
+      </div>
+
+      <div className="recorder-matrix-scroll">
+        <div
+          className="recorder-matrix"
+          style={{ '--recorder-columns': items.length }}
+          aria-label={`${title}: alto recorder fingering matrix`}
+        >
+          <div className="recorder-matrix-corner">
+            <strong>Alto</strong>
+            <span>Baroque</span>
+          </div>
+
+          {items.map((item) => (
+            <div
+              className={`recorder-column-label${item.isRoot ? ' is-root' : ''}`}
+              key={`${title}-${item.midiNote}-label`}
+            >
+              <strong>{item.noteLabel}</strong>
+              <span>{item.degree}</span>
+            </div>
+          ))}
+
+          {ALTO_RECORDER_HOLES.map((hole, holeIndex) => (
+            <Fragment key={`${title}-${hole}`}>
+              <div
+                className={`recorder-row-label${holeIndex === 0 ? ' is-thumb-row is-group-end' : ''}${holeIndex === 3 || holeIndex === 6 ? ' is-group-end' : ''}`}
+                key={`${title}-${hole}-label`}
+              >
+                <span>{hole}</span>
+              </div>
+
+              {items.map((item) => (
+                <div
+                  className={`recorder-matrix-cell${item.isRoot ? ' is-root-column' : ''}${holeIndex === 0 ? ' is-thumb-row is-group-end' : ''}${holeIndex === 3 || holeIndex === 6 ? ' is-group-end' : ''}`}
+                  key={`${title}-${item.midiNote}-${hole}`}
+                  aria-label={`${item.noteLabel}, degree ${item.degree}, hole ${hole}: ${item.pattern[holeIndex] ?? 'open'}`}
+                >
+                  {renderHoleGlyph(item.pattern[holeIndex], holeIndex >= 6)}
+                </div>
+              ))}
+            </Fragment>
+          ))}
+        </div>
+      </div>
+
+    </article>
+  )
+}
+
 function App() {
   const [mode, setMode] = useState(() => readQueryState(window.location.search).mode)
   const [instrument, setInstrument] = useState(() => readQueryState(window.location.search).instrument)
@@ -521,6 +601,7 @@ function App() {
   const complexity = CHORD_COMPLEXITY_OPTIONS.find((item) => item.id === complexityId) ?? CHORD_COMPLEXITY_OPTIONS[1]
   const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId)
   const isCello = instrument === 'cello'
+  const isRecorder = instrument === 'alto-recorder'
   const isFingerboardInstrument = instrument === 'guitar' || isCello
   const currentStringSet = isCello ? CELLO_STRING_SET : GUITAR_STRING_SET
   const currentMaxFret = isCello ? CELLO_MAX_POSITION : MAX_FRET
@@ -528,6 +609,11 @@ function App() {
   const scaleLabelsByPitchClass = Object.fromEntries(
     scale.intervals.map((interval) => [(root.pitchClass + interval) % 12, getDegreeLabel(interval, scale)]),
   )
+  const recorderScaleItems = buildRecorderFingeringItems({
+    rootPitchClass: root.pitchClass,
+    intervals: scale.intervals,
+    labelsByInterval: scale.degreeLabels,
+  })
   const rows = buildFretboardRows(root.pitchClass, scale, currentMaxFret, currentStringSet)
   const fullNeckFrets = getVisibleFrets(0, currentMaxFret + 1, currentMaxFret)
   const positionWindows = buildPositionWindows(rows, root.pitchClass, currentMaxFret, 5, currentStringSet)
@@ -836,6 +922,18 @@ function App() {
     })
   }
 
+  function getChordToneRecorderItems(chord) {
+    const qualityId = chord.qualityId ?? chord.quality
+    const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.maj
+    const intervals = Object.keys(quality.toneLabels).map(Number)
+
+    return buildRecorderFingeringItems({
+      rootPitchClass: chord.rootPitchClass,
+      intervals,
+      labelsByInterval: quality.toneLabels,
+    })
+  }
+
   function renderPrimaryScaleReference() {
     return (
       <article className="scale-suggestion arrangement-primary-scale">
@@ -884,6 +982,13 @@ function App() {
               subtitle={isCello ? 'Primary scale tones with practical finger labels.' : 'Primary scale tones through the 15th fret.'}
               frets={getVisibleFrets(0, currentMaxFret + 1, currentMaxFret)}
               rows={buildFretboardRows(root.pitchClass, scale, currentMaxFret, currentStringSet)}
+              compact
+            />
+          ) : isRecorder ? (
+            <RecorderFingeringChart
+              title="Alto recorder fingerings"
+              subtitle="Primary scale tones across the practical alto recorder range."
+              items={recorderScaleItems}
               compact
             />
           ) : (
@@ -1033,6 +1138,7 @@ function App() {
                 <option value="guitar">Guitar</option>
                 <option value="piano">Piano</option>
                 <option value="cello">Cello</option>
+                <option value="alto-recorder">Alto recorder</option>
               </select>
             </label>
           </div>
@@ -1180,6 +1286,12 @@ function App() {
                 frets={fullNeckFrets}
                 rows={rows}
               />
+            ) : isRecorder ? (
+              <RecorderFingeringChart
+                title="Alto recorder fingering map"
+                subtitle="Scale tones across the practical alto recorder range."
+                items={recorderScaleItems}
+              />
             ) : (
               <PianoKeyboardChart
                 title="Keyboard map"
@@ -1304,6 +1416,13 @@ function App() {
                           subtitle={row.formula}
                           frets={fullNeckFrets}
                           rows={getChordToneRows(row)}
+                          compact
+                        />
+                      ) : isRecorder ? (
+                        <RecorderFingeringChart
+                          title={`${row.name} alto recorder fingerings`}
+                          subtitle={row.formula}
+                          items={getChordToneRecorderItems(row)}
                           compact
                         />
                       ) : (
@@ -1740,6 +1859,13 @@ function App() {
                         rows={getChordToneRows(selectedArrangementChord)}
                         compact
                       />
+                    ) : isRecorder ? (
+                      <RecorderFingeringChart
+                        title={`${selectedArrangementChord.name} alto recorder fingerings`}
+                        subtitle={selectedArrangementChord.formula}
+                        items={getChordToneRecorderItems(selectedArrangementChord)}
+                        compact
+                      />
                     ) : (
                       <PianoKeyboardChart
                         title={`${selectedArrangementChord.name} keyboard tones`}
@@ -1814,6 +1940,17 @@ function App() {
                               currentMaxFret,
                               currentStringSet,
                             )}
+                            compact
+                          />
+                        ) : isRecorder ? (
+                          <RecorderFingeringChart
+                            title="Alto recorder fingerings"
+                            subtitle="Suggested scale tones across the practical alto recorder range."
+                            items={buildRecorderFingeringItems({
+                              rootPitchClass: suggestion.rootPitchClass,
+                              intervals: (SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale).intervals,
+                              labelsByInterval: (SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale).degreeLabels,
+                            })}
                             compact
                           />
                         ) : (

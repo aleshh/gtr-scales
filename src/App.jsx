@@ -1,4 +1,5 @@
-import { Fragment, useEffect, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
+import { Gauge, Metronome } from 'lucide-react'
 import './App.css'
 import {
   ROOT_OPTIONS,
@@ -107,6 +108,56 @@ const CUSTOM_CHORD_QUALITY_OPTIONS = [
   'dominant9',
   'dominant7Sus4',
 ]
+const CHROMATIC_TUNER_NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+
+function frequencyToPitch(frequency) {
+  const midi = Math.round(69 + 12 * Math.log2(frequency / 440))
+  const targetFrequency = 440 * (2 ** ((midi - 69) / 12))
+  const cents = 1200 * Math.log2(frequency / targetFrequency)
+
+  return {
+    note: `${CHROMATIC_TUNER_NOTES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`,
+    cents,
+    frequency,
+  }
+}
+
+function getBufferRms(buffer) {
+  let rms = 0
+
+  for (let index = 0; index < buffer.length; index += 1) {
+    rms += buffer[index] ** 2
+  }
+
+  return Math.sqrt(rms / buffer.length)
+}
+
+function autoCorrelate(buffer, sampleRate) {
+  const rms = getBufferRms(buffer)
+  if (rms < 0.01) return null
+
+  let bestOffset = -1
+  let bestCorrelation = 0
+  const minOffset = Math.floor(sampleRate / 1000)
+  const maxOffset = Math.floor(sampleRate / 60)
+
+  for (let offset = minOffset; offset <= maxOffset; offset += 1) {
+    let correlation = 0
+
+    for (let index = 0; index < buffer.length - offset; index += 1) {
+      correlation += 1 - Math.abs(buffer[index] - buffer[index + offset])
+    }
+
+    correlation /= buffer.length - offset
+
+    if (correlation > bestCorrelation) {
+      bestCorrelation = correlation
+      bestOffset = offset
+    }
+  }
+
+  return bestCorrelation > 0.82 && bestOffset > 0 ? sampleRate / bestOffset : null
+}
 
 function createProgressionEvent(chordId, startTick, durationTicks) {
   return {
@@ -654,6 +705,255 @@ function ClarinetFingeringChart({
   )
 }
 
+function FloatingToolWindow({
+  title,
+  defaultPosition,
+  onClose,
+  children,
+}) {
+  const [position, setPosition] = useState(defaultPosition)
+  const dragStateRef = useRef(null)
+
+  const handlePointerMove = useCallback((event) => {
+    const dragState = dragStateRef.current
+    if (!dragState) return
+
+    setPosition({
+      x: Math.max(8, dragState.startX + event.clientX - dragState.pointerX),
+      y: Math.max(8, dragState.startY + event.clientY - dragState.pointerY),
+    })
+  }, [])
+
+  const stopDrag = useCallback(() => {
+    dragStateRef.current = null
+    window.removeEventListener('pointermove', handlePointerMove)
+  }, [handlePointerMove])
+
+  function startDrag(event) {
+    if (event.button !== 0) return
+
+    dragStateRef.current = {
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      startX: position.x,
+      startY: position.y,
+    }
+    window.addEventListener('pointermove', handlePointerMove)
+    window.addEventListener('pointerup', stopDrag, { once: true })
+  }
+
+  useEffect(() => () => {
+    stopDrag()
+    window.removeEventListener('pointerup', stopDrag)
+  }, [stopDrag])
+
+  return (
+    <section
+      className="floating-tool-window"
+      style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
+    >
+      <div className="floating-tool-header" onPointerDown={startDrag}>
+        <strong>{title}</strong>
+        <button type="button" aria-label={`Close ${title}`} onClick={onClose}>x</button>
+      </div>
+      {children}
+    </section>
+  )
+}
+
+function MetronomeTool() {
+  const [tempo, setTempo] = useState(96)
+  const [isRunning, setIsRunning] = useState(false)
+  const [beat, setBeat] = useState(0)
+  const audioContextRef = useRef(null)
+  const intervalRef = useRef(null)
+  const beatRef = useRef(0)
+
+  const click = useCallback(() => {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    if (!AudioContextClass) return
+
+    const audioContext = audioContextRef.current ?? new AudioContextClass()
+    audioContextRef.current = audioContext
+
+    const oscillator = audioContext.createOscillator()
+    const gain = audioContext.createGain()
+    oscillator.frequency.value = beatRef.current === 0 ? 1200 : 880
+    gain.gain.setValueAtTime(0.0001, audioContext.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.24, audioContext.currentTime + 0.004)
+    gain.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.055)
+    oscillator.connect(gain)
+    gain.connect(audioContext.destination)
+    oscillator.start()
+    oscillator.stop(audioContext.currentTime + 0.06)
+    beatRef.current = (beatRef.current + 1) % 4
+    setBeat(beatRef.current)
+  }, [])
+
+  useEffect(() => {
+    if (!isRunning) {
+      window.clearInterval(intervalRef.current)
+      intervalRef.current = null
+      return undefined
+    }
+
+    intervalRef.current = window.setInterval(click, 60000 / tempo)
+
+    return () => {
+      window.clearInterval(intervalRef.current)
+      intervalRef.current = null
+    }
+  }, [click, isRunning, tempo])
+
+  useEffect(() => () => {
+    window.clearInterval(intervalRef.current)
+    audioContextRef.current?.close()
+  }, [])
+
+  return (
+    <div className="metronome-tool">
+      <button
+        className={`metronome-beat-light${isRunning ? ' is-running' : ''}`}
+        type="button"
+        aria-label={isRunning ? 'Stop metronome' : 'Start metronome'}
+        onClick={() => setIsRunning((current) => !current)}
+      >
+        {isRunning ? beat + 1 : 'Start'}
+      </button>
+      <label className="vertical-control">
+        <span>Tempo</span>
+        <input
+          type="range"
+          min="40"
+          max="220"
+          value={tempo}
+          onChange={(event) => setTempo(Number(event.target.value))}
+        />
+      </label>
+      <input
+        className="tempo-number"
+        type="number"
+        min="40"
+        max="220"
+        value={tempo}
+        onChange={(event) => setTempo(Math.max(40, Math.min(220, Number(event.target.value) || 40)))}
+      />
+      <span className="tool-unit">bpm</span>
+    </div>
+  )
+}
+
+function TunerTool() {
+  const [isListening, setIsListening] = useState(false)
+  const [pitch, setPitch] = useState(null)
+  const [status, setStatus] = useState('Requesting mic')
+  const [inputLevel, setInputLevel] = useState(0)
+  const audioRef = useRef(null)
+  const animationRef = useRef(null)
+
+  const stop = useCallback(() => {
+    window.cancelAnimationFrame(animationRef.current)
+    audioRef.current?.stream.getTracks().forEach((track) => track.stop())
+    audioRef.current?.audioContext.close()
+    audioRef.current = null
+    setIsListening(false)
+    setPitch(null)
+    setInputLevel(0)
+    setStatus('Idle')
+  }, [])
+
+  const start = useCallback(async () => {
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext
+      setStatus('Requesting mic')
+
+      if (!AudioContextClass || !navigator.mediaDevices?.getUserMedia) {
+        setStatus('Mic unavailable')
+        return
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          autoGainControl: false,
+          echoCancellation: false,
+          noiseSuppression: false,
+        },
+      })
+      const audioContext = new AudioContextClass()
+      await audioContext.resume()
+      const analyser = audioContext.createAnalyser()
+      analyser.fftSize = 8192
+      audioContext.createMediaStreamSource(stream).connect(analyser)
+      audioRef.current = { audioContext, analyser, stream }
+      setIsListening(true)
+      setStatus('Listening')
+    } catch {
+      setStatus('Mic blocked')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!isListening || !audioRef.current) return undefined
+
+    const buffer = new Float32Array(audioRef.current.analyser.fftSize)
+
+    function update() {
+      const currentAudio = audioRef.current
+      if (!currentAudio) return
+
+      currentAudio.analyser.getFloatTimeDomainData(buffer)
+      const level = Math.min(1, getBufferRms(buffer) * 18)
+      const frequency = autoCorrelate(buffer, currentAudio.audioContext.sampleRate)
+      setInputLevel(level)
+      setPitch(frequency ? frequencyToPitch(frequency) : null)
+      setStatus(frequency ? 'Locked' : level > 0.04 ? 'Listening' : 'Signal low')
+      animationRef.current = window.requestAnimationFrame(update)
+    }
+
+    update()
+    return () => window.cancelAnimationFrame(animationRef.current)
+  }, [isListening])
+
+  useEffect(() => {
+    const startTimer = window.setTimeout(start, 0)
+
+    return () => {
+      window.clearTimeout(startTimer)
+      stop()
+    }
+  }, [start, stop])
+
+  const cents = pitch ? Math.max(-50, Math.min(50, pitch.cents)) : 0
+
+  return (
+    <div className="tuner-tool">
+      <button
+        className={`tuner-note${isListening ? ' is-listening' : ''}`}
+        type="button"
+        onClick={isListening ? stop : start}
+      >
+        <strong>{pitch?.note ?? '--'}</strong>
+        <span>{pitch ? `${pitch.frequency.toFixed(1)} Hz` : status}</span>
+      </button>
+      <div className="tuner-meter" aria-label="Tuning meter">
+        <span className="tuner-meter-line"></span>
+        <span
+          className="tuner-meter-needle"
+          style={{ transform: `translateX(-50%) translateY(${cents * 1.4}px)` }}
+        ></span>
+      </div>
+      <div className="tuner-cents">
+        <span>Sharp</span>
+        <strong>{pitch ? `${pitch.cents > 0 ? '+' : ''}${pitch.cents.toFixed(0)}c` : '0c'}</strong>
+        <span>Flat</span>
+      </div>
+      <div className="tuner-input-level" aria-label="Microphone input level">
+        <span style={{ height: `${Math.round(inputLevel * 100)}%` }}></span>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const [mode, setMode] = useState(() => readQueryState(window.location.search).mode)
   const [instrument, setInstrument] = useState(() => readQueryState(window.location.search).instrument)
@@ -675,6 +975,7 @@ function App() {
   const [customChords, setCustomChords] = useState([])
   const [customChordRootLabel, setCustomChordRootLabel] = useState(() => readQueryState(window.location.search).root)
   const [customChordQualityId, setCustomChordQualityId] = useState('maj')
+  const [openTools, setOpenTools] = useState({ metronome: false, tuner: false })
 
   const groupedScales = groupItemsByFamily(SCALE_LIBRARY)
   const groupedFlavors = groupItemsByFamily(CHORD_FLAVOR_LIBRARY)
@@ -1200,6 +1501,49 @@ function App() {
 
   return (
     <main className="app-shell">
+      <div className="tool-launcher" aria-label="Practice tools">
+        <button
+          className="tool-icon-button is-metronome"
+          type="button"
+          aria-label="Open metronome"
+          aria-pressed={openTools.metronome}
+          title="Metronome"
+          onClick={() => setOpenTools((current) => ({ ...current, metronome: !current.metronome }))}
+        >
+          <Metronome size={21} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+        <button
+          className="tool-icon-button is-tuner"
+          type="button"
+          aria-label="Open tuner"
+          aria-pressed={openTools.tuner}
+          title="Tuner"
+          onClick={() => setOpenTools((current) => ({ ...current, tuner: !current.tuner }))}
+        >
+          <Gauge size={21} strokeWidth={2.2} aria-hidden="true" />
+        </button>
+      </div>
+
+      {openTools.metronome ? (
+        <FloatingToolWindow
+          title="Metronome"
+          defaultPosition={{ x: window.innerWidth - 180, y: 86 }}
+          onClose={() => setOpenTools((current) => ({ ...current, metronome: false }))}
+        >
+          <MetronomeTool />
+        </FloatingToolWindow>
+      ) : null}
+
+      {openTools.tuner ? (
+        <FloatingToolWindow
+          title="Tuner"
+          defaultPosition={{ x: window.innerWidth - 180, y: 318 }}
+          onClose={() => setOpenTools((current) => ({ ...current, tuner: false }))}
+        >
+          <TunerTool />
+        </FloatingToolWindow>
+      ) : null}
+
       <section className="control-panel">
         <p className="eyebrow control-eyebrow">Scale and chord fingering chart generator</p>
         <p className="control-intro">{controlIntro}</p>

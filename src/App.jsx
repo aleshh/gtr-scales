@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { Gauge, Metronome } from 'lucide-react'
+import { Gauge, Metronome, X } from 'lucide-react'
 import './App.css'
 import {
   ROOT_OPTIONS,
@@ -109,6 +109,44 @@ const CUSTOM_CHORD_QUALITY_OPTIONS = [
   'dominant7Sus4',
 ]
 const CHROMATIC_TUNER_NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+const TUNER_MIC_CONSTRAINTS = {
+  audio: {
+    autoGainControl: false,
+    echoCancellation: false,
+    noiseSuppression: false,
+  },
+}
+
+function interpolateColor(start, end, t) {
+  const amount = Math.max(0, Math.min(1, t))
+  const channels = start.map((channel, index) => Math.round(channel + ((end[index] - channel) * amount)))
+  return `rgb(${channels.join(', ')})`
+}
+
+function getTunerIndicatorStyle(cents) {
+  if (!Number.isFinite(cents)) return undefined
+
+  const absoluteCents = Math.abs(cents)
+  const yellow = [238, 214, 74]
+  const orange = [224, 126, 41]
+  const red = [190, 54, 54]
+
+  if (absoluteCents <= 4) {
+    return { backgroundColor: `rgb(${yellow.join(', ')})`, color: '#243026' }
+  }
+
+  if (absoluteCents <= 28) {
+    return {
+      backgroundColor: interpolateColor(yellow, orange, (absoluteCents - 4) / 24),
+      color: '#243026',
+    }
+  }
+
+  return {
+    backgroundColor: interpolateColor(orange, red, (absoluteCents - 28) / 22),
+    color: '#fff8ee',
+  }
+}
 
 function frequencyToPitch(frequency) {
   const midi = Math.round(69 + 12 * Math.log2(frequency / 440))
@@ -117,8 +155,21 @@ function frequencyToPitch(frequency) {
 
   return {
     note: `${CHROMATIC_TUNER_NOTES[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}`,
+    midi,
     cents,
     frequency,
+  }
+}
+
+async function requestTunerStream() {
+  try {
+    return await navigator.mediaDevices.getUserMedia(TUNER_MIC_CONSTRAINTS)
+  } catch (error) {
+    if (error?.name === 'OverconstrainedError' || error?.name === 'ConstraintNotSatisfiedError') {
+      return navigator.mediaDevices.getUserMedia({ audio: true })
+    }
+
+    throw error
   }
 }
 
@@ -754,7 +805,9 @@ function FloatingToolWindow({
     >
       <div className="floating-tool-header" onPointerDown={startDrag}>
         <strong>{title}</strong>
-        <button type="button" aria-label={`Close ${title}`} onClick={onClose}>x</button>
+        <button type="button" aria-label={`Close ${title}`} onClick={onClose}>
+          <X size={15} strokeWidth={2.4} aria-hidden="true" />
+        </button>
       </div>
       {children}
     </section>
@@ -847,38 +900,47 @@ function TunerTool() {
   const [isListening, setIsListening] = useState(false)
   const [pitch, setPitch] = useState(null)
   const [status, setStatus] = useState('Requesting mic')
-  const [inputLevel, setInputLevel] = useState(0)
   const audioRef = useRef(null)
   const animationRef = useRef(null)
+  const smoothedPitchRef = useRef(null)
+  const missedPitchFramesRef = useRef(0)
 
-  const stop = useCallback(() => {
+  const resetAudio = useCallback(() => {
     window.cancelAnimationFrame(animationRef.current)
     audioRef.current?.stream.getTracks().forEach((track) => track.stop())
     audioRef.current?.audioContext.close()
     audioRef.current = null
-    setIsListening(false)
-    setPitch(null)
-    setInputLevel(0)
-    setStatus('Idle')
+    smoothedPitchRef.current = null
+    missedPitchFramesRef.current = 0
   }, [])
 
+  const stop = useCallback(() => {
+    resetAudio()
+    setIsListening(false)
+    setPitch(null)
+    setStatus('Idle')
+  }, [resetAudio])
+
   const start = useCallback(async () => {
+    resetAudio()
+    setIsListening(false)
+    setPitch(null)
+
     try {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       setStatus('Requesting mic')
+
+      if (!window.isSecureContext) {
+        setStatus('Needs HTTPS')
+        return
+      }
 
       if (!AudioContextClass || !navigator.mediaDevices?.getUserMedia) {
         setStatus('Mic unavailable')
         return
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          autoGainControl: false,
-          echoCancellation: false,
-          noiseSuppression: false,
-        },
-      })
+      const stream = await requestTunerStream()
       const audioContext = new AudioContextClass()
       await audioContext.resume()
       const analyser = audioContext.createAnalyser()
@@ -887,10 +949,19 @@ function TunerTool() {
       audioRef.current = { audioContext, analyser, stream }
       setIsListening(true)
       setStatus('Listening')
-    } catch {
-      setStatus('Mic blocked')
+    } catch (error) {
+      setIsListening(false)
+      if (error?.name === 'NotAllowedError' || error?.name === 'SecurityError') {
+        setStatus('Mic blocked')
+      } else if (error?.name === 'NotFoundError' || error?.name === 'DevicesNotFoundError') {
+        setStatus('No microphone')
+      } else if (error?.name === 'NotReadableError' || error?.name === 'TrackStartError') {
+        setStatus('Mic in use')
+      } else {
+        setStatus(error?.name ?? 'Mic error')
+      }
     }
-  }, [])
+  }, [resetAudio])
 
   useEffect(() => {
     if (!isListening || !audioRef.current) return undefined
@@ -904,9 +975,30 @@ function TunerTool() {
       currentAudio.analyser.getFloatTimeDomainData(buffer)
       const level = Math.min(1, getBufferRms(buffer) * 18)
       const frequency = autoCorrelate(buffer, currentAudio.audioContext.sampleRate)
-      setInputLevel(level)
-      setPitch(frequency ? frequencyToPitch(frequency) : null)
-      setStatus(frequency ? 'Locked' : level > 0.04 ? 'Listening' : 'Signal low')
+      const detectedPitch = frequency ? frequencyToPitch(frequency) : null
+      let nextPitch = null
+
+      if (detectedPitch) {
+        const previousPitch = smoothedPitchRef.current
+        missedPitchFramesRef.current = 0
+        nextPitch = previousPitch?.midi === detectedPitch.midi
+          ? {
+            ...detectedPitch,
+            cents: (previousPitch.cents * 0.78) + (detectedPitch.cents * 0.22),
+            frequency: (previousPitch.frequency * 0.72) + (detectedPitch.frequency * 0.28),
+          }
+          : detectedPitch
+        smoothedPitchRef.current = nextPitch
+      } else if (smoothedPitchRef.current && missedPitchFramesRef.current < 10) {
+        missedPitchFramesRef.current += 1
+        nextPitch = smoothedPitchRef.current
+      } else {
+        smoothedPitchRef.current = null
+        missedPitchFramesRef.current = 0
+      }
+
+      setPitch(nextPitch)
+      setStatus(nextPitch ? 'Listening' : level > 0.04 ? 'Listening' : 'Signal low')
       animationRef.current = window.requestAnimationFrame(update)
     }
 
@@ -924,31 +1016,29 @@ function TunerTool() {
   }, [start, stop])
 
   const cents = pitch ? Math.max(-50, Math.min(50, pitch.cents)) : 0
+  const tunerIndicatorStyle = pitch ? getTunerIndicatorStyle(cents) : undefined
+  const tunerMeterStyle = tunerIndicatorStyle
+    ? {
+      '--tuner-meter-color': tunerIndicatorStyle.backgroundColor,
+      '--tuner-meter-contrast': tunerIndicatorStyle.color,
+    }
+    : undefined
 
   return (
     <div className="tuner-tool">
       <button
-        className={`tuner-note${isListening ? ' is-listening' : ''}`}
+        className="tuner-readout"
         type="button"
-        onClick={isListening ? stop : start}
+        onClick={start}
       >
-        <strong>{pitch?.note ?? '--'}</strong>
-        <span>{pitch ? `${pitch.frequency.toFixed(1)} Hz` : status}</span>
+        {pitch ? <strong>{pitch.note}</strong> : <span>{status}</span>}
       </button>
-      <div className="tuner-meter" aria-label="Tuning meter">
+      <div className="tuner-meter" style={tunerMeterStyle} aria-label="Tuning meter">
         <span className="tuner-meter-line"></span>
         <span
           className="tuner-meter-needle"
-          style={{ transform: `translateX(-50%) translateY(${cents * 1.4}px)` }}
+          style={{ transform: `translateX(-50%) translateY(${-cents * 1.9}px)` }}
         ></span>
-      </div>
-      <div className="tuner-cents">
-        <span>Sharp</span>
-        <strong>{pitch ? `${pitch.cents > 0 ? '+' : ''}${pitch.cents.toFixed(0)}c` : '0c'}</strong>
-        <span>Flat</span>
-      </div>
-      <div className="tuner-input-level" aria-label="Microphone input level">
-        <span style={{ height: `${Math.round(inputLevel * 100)}%` }}></span>
       </div>
     </div>
   )

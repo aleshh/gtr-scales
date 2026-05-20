@@ -44,7 +44,7 @@ const DEFAULT_QUERY_STATE = {
   scale: 'phrygian',
   flavor: 'major',
   complexity: 'sevenths',
-  harmonyComplexity: 'folk-rock',
+  harmonyComplexity: 'simple',
   instrument: 'guitar',
 }
 
@@ -65,15 +65,28 @@ const VALID_SCALES = new Set(SCALE_LIBRARY.map((item) => item.id))
 const VALID_FLAVORS = new Set(CHORD_FLAVOR_LIBRARY.map((item) => item.id))
 const VALID_COMPLEXITIES = new Set(CHORD_COMPLEXITY_OPTIONS.map((item) => item.id))
 const VALID_HARMONY_COMPLEXITIES = new Set(ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => item.id))
+const LEGACY_HARMONY_COMPLEXITIES = {
+  'folk-rock': 'simple',
+  'pop-soul': 'sevenths',
+  classical: 'sevenths',
+  jazz: 'extended',
+  impressionist: 'extended',
+  'advanced-jazz': 'advanced',
+  experimental: 'advanced',
+}
 
 function getValidQueryValue(params, key, validValues, fallback) {
   const value = params.get(key)
   return value && validValues.has(value) ? value : fallback
 }
 
-function getValidQueryValueFromKeys(params, keys, validValues, fallback) {
-  const value = keys.map((key) => params.get(key)).find(Boolean)
-  return value && validValues.has(value) ? value : fallback
+function getValidHarmonyComplexity(params) {
+  const value = ['harmonyComplexity', 'arrangementComplexity'].map((key) => params.get(key)).find(Boolean)
+  const normalizedValue = LEGACY_HARMONY_COMPLEXITIES[value] ?? value
+
+  return normalizedValue && VALID_HARMONY_COMPLEXITIES.has(normalizedValue)
+    ? normalizedValue
+    : DEFAULT_QUERY_STATE.harmonyComplexity
 }
 
 function readQueryState(search = '') {
@@ -86,7 +99,7 @@ function readQueryState(search = '') {
     scale: getValidQueryValue(params, 'scale', VALID_SCALES, DEFAULT_QUERY_STATE.scale),
     flavor: getValidQueryValue(params, 'flavor', VALID_FLAVORS, DEFAULT_QUERY_STATE.flavor),
     complexity: getValidQueryValue(params, 'complexity', VALID_COMPLEXITIES, DEFAULT_QUERY_STATE.complexity),
-    harmonyComplexity: getValidQueryValueFromKeys(params, ['harmonyComplexity', 'arrangementComplexity'], VALID_HARMONY_COMPLEXITIES, DEFAULT_QUERY_STATE.harmonyComplexity),
+    harmonyComplexity: getValidHarmonyComplexity(params),
   }
 }
 
@@ -1110,6 +1123,9 @@ function App() {
   const flavor = CHORD_FLAVOR_LIBRARY.find((item) => item.id === flavorId) ?? CHORD_FLAVOR_LIBRARY[0]
   const complexity = CHORD_COMPLEXITY_OPTIONS.find((item) => item.id === complexityId) ?? CHORD_COMPLEXITY_OPTIONS[1]
   const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId)
+  const harmonyChordPaletteLabel = arrangement.complexity.id === 'sevenths'
+    ? '7th chords'
+    : `${arrangement.complexity.label} chords`
   const instrumentLabel = {
     guitar: 'Guitar',
     piano: 'Piano',
@@ -2103,7 +2119,7 @@ function App() {
               {renderPrimaryScaleReference()}
 
               <div className="palette-heading">
-                <h2>{arrangement.complexity.label} chords in the {scale.name} scale</h2>
+                <h2>{harmonyChordPaletteLabel} in the {scale.name} scale</h2>
               </div>
               {renderChordPalette()}
             </>

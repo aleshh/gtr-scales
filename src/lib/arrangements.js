@@ -69,38 +69,32 @@ const DEFAULT_INSIDE_CHORD_PREFERENCE = [
 ]
 
 const EXTRA_CHORDS = {
-  'folk-rock': [
+  simple: [
     { interval: 10, numeral: 'bVII', quality: 'maj', summary: 'Loose modal color that shows up constantly in rock writing.', tags: ['modal', 'anthemic'] },
     { interval: 5, numeral: 'iv', quality: 'min', summary: 'Borrowed minor support for a wistful turn.', tags: ['borrowed', 'melancholy'] },
   ],
-  'pop-soul': [
+  sevenths: [
     { interval: 5, numeral: 'IVmaj7', quality: 'major7', summary: 'Glossy lift that keeps the chorus broad.', tags: ['open', 'warm'] },
     { interval: 9, numeral: 'vi7', quality: 'minor7', summary: 'Smooth relative-minor color for loops and pre-choruses.', tags: ['soft', 'connected'] },
-    { interval: 10, numeral: 'bVII7sus', quality: 'dominant7Sus4', summary: 'Suspended dominant color without a hard classical cadence.', tags: ['suspended', 'pop'] },
-  ],
-  jazz: [
-    { interval: 2, numeral: 'ii7', quality: 'minor7', summary: 'The standard setup chord for dominant movement.', tags: ['pre-dominant', 'swing'] },
-    { interval: 7, numeral: 'V9', quality: 'dominant9', summary: 'Main dominant color with enough extension for jazz lines.', tags: ['dominant', 'motion'] },
-    { interval: 9, numeral: 'VI7', quality: 'dominant9', summary: 'Turnaround dominant that points back into ii.', tags: ['secondary dominant', 'turnaround'] },
-  ],
-  'advanced-jazz': [
-    { interval: 1, numeral: 'bIImaj7', quality: 'major7', summary: 'A tritone-side or Neapolitan color for dramatic displacement.', tags: ['outside', 'chromatic'] },
-    { interval: 3, numeral: 'bIII7', quality: 'dominant9', summary: 'Backdoor or side-slip dominant color.', tags: ['substitution', 'dominant'] },
-    { interval: 6, numeral: '#IVdim7', quality: 'diminished7', summary: 'Symmetric passing tension that can point in several directions.', tags: ['symmetric', 'passing'] },
-  ],
-  classical: [
     { interval: 2, numeral: 'iiø7', quality: 'minor7Flat5', summary: 'Predominant tension, especially persuasive in minor contexts.', tags: ['predominant', 'voice-led'] },
     { interval: 7, numeral: 'V7', quality: 'dominant7', summary: 'The strongest cadence builder back to the tonic.', tags: ['dominant', 'cadential'] },
     { interval: 1, numeral: 'bII', quality: 'maj', summary: 'Neapolitan color for formal dramatic pressure.', tags: ['neapolitan', 'dramatic'] },
+    { interval: 10, numeral: 'bVII7sus', quality: 'dominant7Sus4', summary: 'Suspended dominant color without a hard classical cadence.', tags: ['suspended', 'pop'] },
   ],
-  impressionist: [
+  extended: [
+    { interval: 2, numeral: 'ii7', quality: 'minor7', summary: 'The standard setup chord for dominant movement.', tags: ['pre-dominant', 'swing'] },
+    { interval: 7, numeral: 'V9', quality: 'dominant9', summary: 'Main dominant color with enough extension for jazz lines.', tags: ['dominant', 'motion'] },
+    { interval: 9, numeral: 'VI7', quality: 'dominant9', summary: 'Turnaround dominant that points back into ii.', tags: ['secondary dominant', 'turnaround'] },
     { interval: 2, numeral: 'II9', quality: 'dominant9', summary: 'Planing-friendly brightness, especially from a Lydian viewpoint.', tags: ['planing', 'bright'] },
-    { interval: 6, numeral: '#IVo7', quality: 'diminished7', summary: 'Symmetric color that can avoid a normal tonal answer.', tags: ['symmetric', 'floating'] },
     { interval: 10, numeral: 'bVII7sus', quality: 'dominant7Sus4', summary: 'Open dominant color that can hang without resolving.', tags: ['suspended', 'modal'] },
+    { interval: 6, numeral: '#IVo7', quality: 'diminished7', summary: 'Symmetric color that can avoid a normal tonal answer.', tags: ['symmetric', 'floating'] },
   ],
-  experimental: [
-    { interval: 1, numeral: 'bIImaj7', quality: 'major7', summary: 'Hard chromatic side-light against the tonal center.', tags: ['chromatic', 'dissonant'] },
+  advanced: [
+    { interval: 1, numeral: 'bIImaj7', quality: 'major7', summary: 'A tritone-side or Neapolitan color for dramatic displacement.', tags: ['outside', 'chromatic'] },
+    { interval: 3, numeral: 'bIII7', quality: 'dominant9', summary: 'Backdoor or side-slip dominant color.', tags: ['substitution', 'dominant'] },
+    { interval: 6, numeral: '#IVdim7', quality: 'diminished7', summary: 'Symmetric passing tension that can point in several directions.', tags: ['symmetric', 'passing'] },
     { interval: 4, numeral: 'III7', quality: 'dominant9', summary: 'Chromatic mediant dominant for abrupt color change.', tags: ['mediant', 'unstable'] },
+    { interval: 7, numeral: 'V7#5', quality: 'dominant7Sharp5', summary: 'Altered dominant pressure that wants a strong resolution.', tags: ['altered', 'dominant'] },
     { interval: 6, numeral: 'tritone dim7', quality: 'diminished7', summary: 'Diminished material for axis harmony and nonfunctional tension.', tags: ['axis', 'symmetric'] },
     { interval: 8, numeral: 'bVImaj7', quality: 'major7', summary: 'Remote but cinematic major color.', tags: ['mediant', 'color'] },
   ],
@@ -217,7 +211,7 @@ function getQualityForComplexity(baseQuality, complexity) {
     if (baseQuality === 'diminished7') return 'dim'
   }
 
-  if (complexity.chordComplexity === 'extended') {
+  if (complexity.chordComplexity === 'extended' || complexity.chordComplexity === 'advanced') {
     if (baseQuality === 'dominant7') return 'dominant9'
   }
 
@@ -240,9 +234,8 @@ function getScaleSuggestionIds(qualityId, complexityId, rootScaleId) {
   if (qualityId === 'minor7Flat5') base.push('locrian', 'diminished-whole-half')
   if (qualityId === 'dim' || qualityId === 'diminished7') base.push('diminished-whole-half')
 
-  if (complexityId === 'advanced-jazz') base.push('altered', 'diminished-half-whole', 'lydian-dominant')
-  if (complexityId === 'impressionist') base.push('lydian', 'whole-tone')
-  if (complexityId === 'experimental') base.push('whole-tone', 'diminished-half-whole', 'hungarian-minor')
+  if (complexityId === 'extended') base.push('lydian', 'whole-tone')
+  if (complexityId === 'advanced') base.push('altered', 'diminished-half-whole', 'lydian-dominant', 'whole-tone', 'hungarian-minor')
 
   return [...new Set(base)].filter((id) => SCALE_BY_ID[id]).slice(0, 4)
 }
@@ -359,7 +352,7 @@ export function buildArrangement(rootPitchClass, scale, complexityId) {
       return true
     })
     .sort((left, right) => left.priority - right.priority)
-    .slice(0, complexity.id === 'folk-rock' ? 7 : 10)
+    .slice(0, complexity.id === 'simple' ? 7 : 10)
     .map((chord) => ({
       ...chord,
       suggestions: buildSuggestions(rootPitchClass, scale, chord, complexity.id),

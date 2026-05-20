@@ -324,13 +324,14 @@
   position: sticky;
   top: 0;
   z-index: 45;
-  width: 100vw;
-  margin-left: calc(50% - 50vw);
-  margin-right: calc(50% - 50vw);
+  margin-left: -24px;
+  margin-right: -24px;
   padding: 8px 0;
-  border-bottom: 1px solid rgba(55, 90, 71, 0.16);
   background: rgba(247, 252, 246, 0.97);
-  box-shadow: 0 8px 24px rgba(25, 49, 38, 0.1);
+  box-shadow:
+    0 0 0 100vmax rgba(247, 252, 246, 0.97),
+    0 8px 24px rgba(25, 49, 38, 0.1);
+  clip-path: inset(0 -100vmax);
   backdrop-filter: blur(10px);
 }
 
@@ -2499,8 +2500,19 @@
     padding: 0 14px 40px;
   }
 
+  .control-panel {
+    margin-left: -14px;
+    margin-right: -14px;
+  }
+
   .control-toolbar {
     padding-inline: 14px;
+  }
+
+  .mode-instrument-group,
+  .control-selectors {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
   }
 
   .hero-panel,

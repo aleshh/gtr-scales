@@ -5,12 +5,12 @@ import {
 } from '../data/chords'
 
 const LOW_TO_HIGH_STRINGS = [
-  { label: 'E', openPitchClass: 4 },
-  { label: 'A', openPitchClass: 9 },
-  { label: 'D', openPitchClass: 2 },
-  { label: 'G', openPitchClass: 7 },
-  { label: 'B', openPitchClass: 11 },
-  { label: 'E', openPitchClass: 4 },
+  { label: 'E', openPitchClass: 4, openMidi: 40 },
+  { label: 'A', openPitchClass: 9, openMidi: 45 },
+  { label: 'D', openPitchClass: 2, openMidi: 50 },
+  { label: 'G', openPitchClass: 7, openMidi: 55 },
+  { label: 'B', openPitchClass: 11, openMidi: 59 },
+  { label: 'E', openPitchClass: 4, openMidi: 64 },
 ]
 
 const HIGH_TO_LOW_STRINGS = [...LOW_TO_HIGH_STRINGS].reverse()
@@ -160,6 +160,8 @@ function buildVoicingRows(rootPitchClass, quality, frets) {
         notes[fret] = {
           degree,
           noteLabel: getRootLabelForPitchClass(pitchClass),
+          midiNote: string.openMidi + fret,
+          pitchClass,
           interval,
           isRoot: interval === 0,
         }

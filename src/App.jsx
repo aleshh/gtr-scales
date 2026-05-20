@@ -529,6 +529,7 @@ function FretboardChart({
   compact = false,
   showInlays = true,
   fixedFrets = false,
+  onPlayNote = null,
 }) {
   const hasOpenStrings = frets.includes(0)
   const fretColumns = hasOpenStrings ? frets.filter((fret) => fret !== 0) : frets
@@ -567,13 +568,15 @@ function FretboardChart({
               {hasOpenStrings ? (
                 <div className="open-string-cell" key={`${title}-${rowIndex}-open`}>
                   {row.notes[0] ? (
-                    <div
+                    <button
+                      type="button"
                       className={`degree-chip${row.notes[0].isRoot ? ' is-root' : ''}`}
                       title={`${row.notes[0].noteLabel} · degree ${row.notes[0].degree}`}
                       aria-label={`${row.notes[0].noteLabel}, degree ${row.notes[0].degree}`}
+                      onClick={() => onPlayNote?.(row.notes[0])}
                     >
                       {row.notes[0].degree}
-                    </div>
+                    </button>
                   ) : null}
                 </div>
               ) : null}
@@ -586,13 +589,15 @@ function FretboardChart({
                     key={`${title}-${rowIndex}-${fret}`}
                   >
                     {note ? (
-                      <div
+                      <button
+                        type="button"
                         className={`degree-chip${note.isRoot ? ' is-root' : ''}`}
                         title={`${note.noteLabel} · degree ${note.degree}`}
                         aria-label={`${note.noteLabel}, degree ${note.degree}`}
+                        onClick={() => onPlayNote?.(note)}
                       >
                         {note.degree}
-                      </div>
+                      </button>
                     ) : null}
                   </div>
                 )
@@ -633,17 +638,22 @@ function PianoKeyboardChart({
   rootPitchClass,
   labelsByPitchClass = {},
   compact = false,
+  onPlayNote = null,
 }) {
   const activePitchClasses = new Set(pitchClasses)
   const whiteKeys = Array.from({ length: 14 }, (_, index) => ({
     index,
     pitchClass: PIANO_WHITE_KEY_PITCH_CLASSES[index % PIANO_WHITE_KEY_PITCH_CLASSES.length],
+    midiNote: 48
+      + Math.floor(index / PIANO_WHITE_KEY_PITCH_CLASSES.length) * 12
+      + PIANO_WHITE_KEY_PITCH_CLASSES[index % PIANO_WHITE_KEY_PITCH_CLASSES.length],
   }))
   const blackKeys = Array.from({ length: 2 }, (_, octaveIndex) => (
     PIANO_BLACK_KEY_LAYOUT.map((key) => ({
       ...key,
       index: octaveIndex * PIANO_WHITE_KEY_PITCH_CLASSES.length + key.afterWhiteIndex,
       pitchClass: key.pitchClass,
+      midiNote: 48 + octaveIndex * 12 + key.pitchClass,
     }))
   )).flat()
 
@@ -660,13 +670,21 @@ function PianoKeyboardChart({
         style={{ '--key-index': key.index }}
       >
         <div className="piano-note-label">{noteLabel}</div>
-        <div
+        <button
+          type="button"
           className={`piano-key is-${color}${isActive ? ' is-active' : ''}${isRoot ? ' is-root' : ''}`}
           title={isActive ? `${noteLabel} · degree ${label}` : noteLabel}
           aria-label={isActive ? `${noteLabel}, degree ${label}` : noteLabel}
+          onClick={isActive ? () => onPlayNote?.({
+            midiNote: key.midiNote,
+            pitchClass: key.pitchClass,
+            noteLabel,
+            degree: label,
+          }) : undefined}
+          disabled={!isActive}
         >
           {isActive ? <span>{label}</span> : null}
-        </div>
+        </button>
       </div>
     )
   }
@@ -699,6 +717,7 @@ function RecorderFingeringChart({
   subtitle,
   items,
   compact = false,
+  onPlayNote = null,
 }) {
   function renderHoleGlyph(state, isDoubleHole) {
     if (isDoubleHole) {
@@ -734,13 +753,15 @@ function RecorderFingeringChart({
           </div>
 
           {items.map((item) => (
-            <div
+            <button
+              type="button"
               className={`recorder-column-label${item.isRoot ? ' is-root' : ''}`}
               key={`${title}-${item.midiNote}-label`}
+              onClick={() => onPlayNote?.(item)}
             >
               <strong>{item.noteLabel}</strong>
               <span>{item.degree}</span>
-            </div>
+            </button>
           ))}
 
           {ALTO_RECORDER_HOLES.map((hole, holeIndex) => (
@@ -820,6 +841,7 @@ function ClarinetFingeringChart({
   subtitle,
   items,
   compact = false,
+  onPlayNote = null,
 }) {
   return (
     <article className={`chart-card clarinet-card${compact ? ' is-compact' : ''}`}>
@@ -832,9 +854,11 @@ function ClarinetFingeringChart({
 
       <div className="clarinet-diagram-grid">
         {items.map((item) => (
-          <div
+          <button
+            type="button"
             className={`clarinet-fingering-card${item.isRoot ? ' is-root' : ''}`}
             key={`${title}-${item.midiNote}`}
+            onClick={() => onPlayNote?.(item)}
           >
             <div className="clarinet-note-heading">
               <strong>{item.noteLabel}</strong>
@@ -842,7 +866,7 @@ function ClarinetFingeringChart({
             </div>
 
             <ClarinetInstrumentDiagram item={item} />
-          </div>
+          </button>
         ))}
       </div>
     </article>
@@ -1425,6 +1449,48 @@ function App() {
     })
   }
 
+  async function getPreviewAudioContext() {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+
+    if (!AudioContextClass) return null
+
+    const audioContext = progressionPlaybackRef.current.audioContext ?? new AudioContextClass()
+    progressionPlaybackRef.current.audioContext = audioContext
+    await audioContext.resume()
+
+    return audioContext
+  }
+
+  async function playNotePreview(note) {
+    const audioContext = await getPreviewAudioContext()
+
+    if (!audioContext) return
+
+    const midi = note.midiNote ?? 60 + (note.pitchClass ?? 0)
+    const frequency = 440 * (2 ** ((midi - 69) / 12))
+    const startTime = audioContext.currentTime + 0.01
+    const previewGain = audioContext.createGain()
+
+    previewGain.gain.setValueAtTime(0.92, startTime)
+    previewGain.connect(audioContext.destination)
+    progressionPlaybackRef.current.scheduledNodes.push(previewGain)
+    scheduleElectricPianoNote(audioContext, previewGain, frequency, startTime, 0.72, 0.28)
+  }
+
+  async function playChordPreview(chord) {
+    const audioContext = await getPreviewAudioContext()
+
+    if (!audioContext) return
+
+    const startTime = audioContext.currentTime + 0.01
+    const previewGain = audioContext.createGain()
+
+    previewGain.gain.setValueAtTime(0.95, startTime)
+    previewGain.connect(audioContext.destination)
+    progressionPlaybackRef.current.scheduledNodes.push(previewGain)
+    scheduleProgressionChord(audioContext, previewGain, chord, startTime, 1.35, progressionChordVolume)
+  }
+
   function animateProgressionPlayback(audioContext, startedAt, tickDuration, totalTicks) {
     const elapsed = audioContext.currentTime - startedAt
     const nextTick = Math.max(0, Math.min(totalTicks, Math.floor(elapsed / tickDuration)))
@@ -1813,6 +1879,7 @@ function App() {
               frets={getVisibleFrets(0, currentMaxFret + 1, currentMaxFret)}
               rows={buildFretboardRows(root.pitchClass, scale, currentMaxFret, currentStringSet)}
               compact
+              onPlayNote={playNotePreview}
             />
           ) : isRecorder ? (
             <RecorderFingeringChart
@@ -1820,6 +1887,7 @@ function App() {
               subtitle="Primary scale tones across the practical alto recorder range."
               items={recorderScaleItems}
               compact
+              onPlayNote={playNotePreview}
             />
           ) : isClarinet ? (
             <ClarinetFingeringChart
@@ -1827,6 +1895,7 @@ function App() {
               subtitle="Primary scale tones across the written Bb clarinet range."
               items={clarinetScaleItems}
               compact
+              onPlayNote={playNotePreview}
             />
           ) : (
             <PianoKeyboardChart
@@ -1836,6 +1905,7 @@ function App() {
               rootPitchClass={root.pitchClass}
               labelsByPitchClass={scaleLabelsByPitchClass}
               compact
+              onPlayNote={playNotePreview}
             />
           )
         ) : null}
@@ -1871,6 +1941,16 @@ function App() {
               <span>{index + 1}</span>
               <strong>{row.name}</strong>
               <small>{row.numeral}</small>
+            </button>
+
+            <button
+              className="palette-play-button"
+              type="button"
+              aria-label={`Preview ${row.name}`}
+              title={`Preview ${row.name}`}
+              onClick={() => playChordPreview(row)}
+            >
+              <Play size={12} />
             </button>
 
             {row.isCustom ? (
@@ -2196,18 +2276,21 @@ function App() {
                 subtitle={isCello ? 'Scale tones across cello strings with position finger labels.' : 'All scale tones through the 15th fret.'}
                 frets={fullNeckFrets}
                 rows={rows}
+                onPlayNote={playNotePreview}
               />
             ) : isRecorder ? (
               <RecorderFingeringChart
                 title="Alto recorder fingering map"
                 subtitle="Scale tones across the practical alto recorder range."
                 items={recorderScaleItems}
+                onPlayNote={playNotePreview}
               />
             ) : isClarinet ? (
               <ClarinetFingeringChart
                 title="Clarinet fingering map"
                 subtitle="Scale tones across the written Bb clarinet range."
                 items={clarinetScaleItems}
+                onPlayNote={playNotePreview}
               />
             ) : (
               <PianoKeyboardChart
@@ -2216,6 +2299,7 @@ function App() {
                 pitchClasses={scalePitchClasses}
                 rootPitchClass={root.pitchClass}
                 labelsByPitchClass={scaleLabelsByPitchClass}
+                onPlayNote={playNotePreview}
               />
             )}
           </section>
@@ -2243,6 +2327,7 @@ function App() {
                     frets={window.frets}
                     rows={rows}
                     compact
+                    onPlayNote={playNotePreview}
                   />
                 ))
               ) : (
@@ -2283,7 +2368,18 @@ function App() {
                     <article className="chord-row" key={row.id}>
                       <div className="chord-row-copy">
                         <div className="chord-row-title">
-                          <h3>{row.name}</h3>
+                          <div className="chord-title-line">
+                            <h3>{row.name}</h3>
+                            <button
+                              className="inline-play-button"
+                              type="button"
+                              aria-label={`Preview ${row.name}`}
+                              title={`Preview ${row.name}`}
+                              onClick={() => playChordPreview(row)}
+                            >
+                              <Play size={14} />
+                            </button>
+                          </div>
                           <p>{row.numeral} · {row.summary}</p>
                         </div>
 
@@ -2311,6 +2407,7 @@ function App() {
                               compact
                               showInlays={false}
                               fixedFrets
+                              onPlayNote={playNotePreview}
                             />
                           ))
                         ) : (
@@ -2334,6 +2431,7 @@ function App() {
                           frets={fullNeckFrets}
                           rows={getChordToneRows(row)}
                           compact
+                          onPlayNote={playNotePreview}
                         />
                       ) : isRecorder ? (
                         <RecorderFingeringChart
@@ -2341,6 +2439,7 @@ function App() {
                           subtitle={row.formula}
                           items={getChordToneRecorderItems(row)}
                           compact
+                          onPlayNote={playNotePreview}
                         />
                       ) : isClarinet ? (
                         <ClarinetFingeringChart
@@ -2348,6 +2447,7 @@ function App() {
                           subtitle={row.formula}
                           items={getChordToneClarinetItems(row)}
                           compact
+                          onPlayNote={playNotePreview}
                         />
                       ) : (
                         <PianoKeyboardChart
@@ -2357,6 +2457,7 @@ function App() {
                           rootPitchClass={row.rootPitchClass}
                           labelsByPitchClass={Object.fromEntries(Object.entries(CHORD_QUALITIES[row.qualityId]?.toneLabels ?? {}).map(([interval, label]) => [(row.rootPitchClass + Number(interval)) % 12, label]))}
                           compact
+                          onPlayNote={playNotePreview}
                         />
                       )}
                     </article>
@@ -2831,7 +2932,18 @@ function App() {
             <article className="arrangement-detail">
               <div className="chord-row-copy">
                 <div className="chord-row-title">
-                  <h2>{selectedArrangementChord.name}</h2>
+                  <div className="chord-title-line">
+                    <h2>{selectedArrangementChord.name}</h2>
+                    <button
+                      className="inline-play-button"
+                      type="button"
+                      aria-label={`Preview ${selectedArrangementChord.name}`}
+                      title={`Preview ${selectedArrangementChord.name}`}
+                      onClick={() => playChordPreview(selectedArrangementChord)}
+                    >
+                      <Play size={14} />
+                    </button>
+                  </div>
                   <p>{selectedArrangementChord.numeral} · {selectedArrangementChord.summary}</p>
                 </div>
 
@@ -2878,6 +2990,7 @@ function App() {
                           compact
                           showInlays={false}
                           fixedFrets
+                          onPlayNote={playNotePreview}
                         />
                       ))
                     ) : isCello ? (
@@ -2887,6 +3000,7 @@ function App() {
                         frets={fullNeckFrets}
                         rows={getChordToneRows(selectedArrangementChord)}
                         compact
+                        onPlayNote={playNotePreview}
                       />
                     ) : isRecorder ? (
                       <RecorderFingeringChart
@@ -2894,6 +3008,7 @@ function App() {
                         subtitle={selectedArrangementChord.formula}
                         items={getChordToneRecorderItems(selectedArrangementChord)}
                         compact
+                        onPlayNote={playNotePreview}
                       />
                     ) : isClarinet ? (
                       <ClarinetFingeringChart
@@ -2901,6 +3016,7 @@ function App() {
                         subtitle={selectedArrangementChord.formula}
                         items={getChordToneClarinetItems(selectedArrangementChord)}
                         compact
+                        onPlayNote={playNotePreview}
                       />
                     ) : (
                       <PianoKeyboardChart
@@ -2910,6 +3026,7 @@ function App() {
                         rootPitchClass={selectedArrangementChord.rootPitchClass}
                         labelsByPitchClass={Object.fromEntries(Object.entries(CHORD_QUALITIES[selectedArrangementChord.quality]?.toneLabels ?? {}).map(([interval, label]) => [(selectedArrangementChord.rootPitchClass + Number(interval)) % 12, label]))}
                         compact
+                        onPlayNote={playNotePreview}
                       />
                     )}
                   </div>
@@ -2979,6 +3096,7 @@ function App() {
                               currentStringSet,
                             )}
                             compact
+                            onPlayNote={playNotePreview}
                           />
                         ) : isRecorder ? (
                           <RecorderFingeringChart
@@ -2990,6 +3108,7 @@ function App() {
                               labelsByInterval: (SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale).degreeLabels,
                             })}
                             compact
+                            onPlayNote={playNotePreview}
                           />
                         ) : isClarinet ? (
                           <ClarinetFingeringChart
@@ -3001,6 +3120,7 @@ function App() {
                               labelsByInterval: (SCALE_LIBRARY.find((item) => item.id === suggestion.scaleId) ?? scale).degreeLabels,
                             })}
                             compact
+                            onPlayNote={playNotePreview}
                           />
                         ) : (
                           <PianoKeyboardChart
@@ -3010,6 +3130,7 @@ function App() {
                             rootPitchClass={suggestion.rootPitchClass}
                             labelsByPitchClass={suggestion.labelsByPitchClass}
                             compact
+                            onPlayNote={playNotePreview}
                           />
                         )
                       ) : null}

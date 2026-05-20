@@ -1,19 +1,19 @@
 import { getDegreeLabel, getPitchClassLabel } from '../data/scales'
 
 export const GUITAR_STRING_SET = [
-  { label: 'E', openPitchClass: 4 },
-  { label: 'B', openPitchClass: 11 },
-  { label: 'G', openPitchClass: 7 },
-  { label: 'D', openPitchClass: 2 },
-  { label: 'A', openPitchClass: 9 },
-  { label: 'E', openPitchClass: 4 },
+  { label: 'E', openPitchClass: 4, openMidi: 64 },
+  { label: 'B', openPitchClass: 11, openMidi: 59 },
+  { label: 'G', openPitchClass: 7, openMidi: 55 },
+  { label: 'D', openPitchClass: 2, openMidi: 50 },
+  { label: 'A', openPitchClass: 9, openMidi: 45 },
+  { label: 'E', openPitchClass: 4, openMidi: 40 },
 ]
 
 export const CELLO_STRING_SET = [
-  { label: 'A', openPitchClass: 9 },
-  { label: 'D', openPitchClass: 2 },
-  { label: 'G', openPitchClass: 7 },
-  { label: 'C', openPitchClass: 0 },
+  { label: 'A', openPitchClass: 9, openMidi: 57 },
+  { label: 'D', openPitchClass: 2, openMidi: 50 },
+  { label: 'G', openPitchClass: 7, openMidi: 43 },
+  { label: 'C', openPitchClass: 0, openMidi: 36 },
 ]
 
 export const STRING_SET = GUITAR_STRING_SET
@@ -54,6 +54,8 @@ export function buildInstrumentRows({
       notes[fret] = {
         degree: labelsByInterval[interval] ?? getDegreeLabel(interval),
         noteLabel: getPitchClassLabel(pitchClass),
+        midiNote: string.openMidi + fret,
+        pitchClass,
         interval,
         isRoot: interval === 0,
       }

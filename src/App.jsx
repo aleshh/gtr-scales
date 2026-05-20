@@ -48,6 +48,16 @@ const DEFAULT_QUERY_STATE = {
   instrument: 'guitar',
 }
 
+const QUERY_SETTING_KEYS = [
+  'mode',
+  'instrument',
+  'root',
+  'scale',
+  'flavor',
+  'complexity',
+  'arrangementComplexity',
+]
+
 const VALID_MODES = new Set(['scales', 'chords', 'arrangement', 'compose'])
 const VALID_INSTRUMENTS = new Set(['guitar', 'piano', 'cello', 'alto-recorder', 'clarinet'])
 const VALID_ROOTS = new Set(ROOT_OPTIONS.map((option) => option.label))
@@ -73,6 +83,11 @@ function readQueryState(search = '') {
     complexity: getValidQueryValue(params, 'complexity', VALID_COMPLEXITIES, DEFAULT_QUERY_STATE.complexity),
     arrangementComplexity: getValidQueryValue(params, 'arrangementComplexity', VALID_ARRANGEMENT_COMPLEXITIES, DEFAULT_QUERY_STATE.arrangementComplexity),
   }
+}
+
+function getQuerySettingKeys(search = '') {
+  const params = new URLSearchParams(search)
+  return new Set(QUERY_SETTING_KEYS.filter((key) => params.has(key)))
 }
 
 const PIANO_WHITE_KEY_PITCH_CLASSES = [0, 2, 4, 5, 7, 9, 11]
@@ -1060,6 +1075,7 @@ function TunerTool() {
 }
 
 function App() {
+  const touchedQueryParamsRef = useRef(getQuerySettingKeys(window.location.search))
   const [mode, setMode] = useState(() => readQueryState(window.location.search).mode)
   const [instrument, setInstrument] = useState(() => readQueryState(window.location.search).instrument)
   const [rootLabel, setRootLabel] = useState(() => readQueryState(window.location.search).root)
@@ -1147,16 +1163,37 @@ function App() {
         ? `${root.label} ${scale.name} compose`
         : `${root.label} ${scale.name} arrangement`
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
+  function updateSettings(keys, action) {
+    const nextKeys = Array.isArray(keys) ? keys : [keys]
+    nextKeys.forEach((key) => touchedQueryParamsRef.current.add(key))
+    action()
+  }
 
-    params.set('mode', mode)
-    params.set('instrument', instrument)
-    params.set('root', rootLabel)
-    params.set('scale', scaleId)
-    params.set('flavor', flavorId)
-    params.set('complexity', complexityId)
-    params.set('arrangementComplexity', arrangementComplexityId)
+  useEffect(() => {
+    const touchedQueryParams = touchedQueryParamsRef.current
+
+    if (touchedQueryParams.size === 0) {
+      return
+    }
+
+    const params = new URLSearchParams(window.location.search)
+    const settingValues = {
+      mode,
+      instrument,
+      root: rootLabel,
+      scale: scaleId,
+      flavor: flavorId,
+      complexity: complexityId,
+      arrangementComplexity: arrangementComplexityId,
+    }
+
+    QUERY_SETTING_KEYS.forEach((key) => {
+      if (touchedQueryParams.has(key)) {
+        params.set(key, settingValues[key])
+      } else {
+        params.delete(key)
+      }
+    })
     params.delete('chordDisplay')
     params.delete('scaleDisplay')
 
@@ -1169,7 +1206,7 @@ function App() {
       return
     }
 
-    const nextUrl = `${window.location.pathname}?${nextSearch}${window.location.hash}`
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ''}${window.location.hash}`
     window.history.pushState(null, '', nextUrl)
   }, [mode, instrument, rootLabel, scaleId, flavorId, complexityId, arrangementComplexityId])
 
@@ -1177,6 +1214,7 @@ function App() {
     function syncFromUrl() {
       const nextState = readQueryState(window.location.search)
 
+      touchedQueryParamsRef.current = getQuerySettingKeys(window.location.search)
       setMode(nextState.mode)
       setInstrument(nextState.instrument)
       setRootLabel(nextState.root)
@@ -1475,7 +1513,7 @@ function App() {
           <button
             className="text-action-button"
             type="button"
-            onClick={() => setMode('scales')}
+            onClick={() => updateSettings('mode', () => setMode('scales'))}
           >
             Open scale
           </button>
@@ -1639,28 +1677,28 @@ function App() {
                 <button
                   className={mode === 'arrangement' ? 'is-active' : ''}
                   type="button"
-                  onClick={() => setMode('arrangement')}
+                  onClick={() => updateSettings('mode', () => setMode('arrangement'))}
                 >
                   Arrangement
                 </button>
                 <button
                   className={mode === 'scales' ? 'is-active' : ''}
                   type="button"
-                  onClick={() => setMode('scales')}
+                  onClick={() => updateSettings('mode', () => setMode('scales'))}
                 >
                   Scales
                 </button>
                 <button
                   className={mode === 'chords' ? 'is-active' : ''}
                   type="button"
-                  onClick={() => setMode('chords')}
+                  onClick={() => updateSettings('mode', () => setMode('chords'))}
                 >
                   Chords
                 </button>
                 <button
                   className={mode === 'compose' ? 'is-active' : ''}
                   type="button"
-                  onClick={() => setMode('compose')}
+                  onClick={() => updateSettings('mode', () => setMode('compose'))}
                 >
                   Compose
                 </button>
@@ -1672,7 +1710,7 @@ function App() {
               <select
                 value={instrument}
                 style={getHeaderSelectStyle(instrumentLabel, { min: 7, max: 15 })}
-                onChange={(event) => setInstrument(event.target.value)}
+                onChange={(event) => updateSettings('instrument', () => setInstrument(event.target.value))}
               >
                 <option value="guitar">Guitar</option>
                 <option value="piano">Piano</option>
@@ -1694,9 +1732,11 @@ function App() {
                   chromeWidth: 48,
                 })}
                 onChange={(event) => {
-                  setRootLabel(event.target.value)
-                  setCustomChordRootLabel(event.target.value)
-                  clearProgression()
+                  updateSettings('root', () => {
+                    setRootLabel(event.target.value)
+                    setCustomChordRootLabel(event.target.value)
+                    clearProgression()
+                  })
                 }}
               >
                 {ROOT_OPTIONS.map((option) => (
@@ -1714,8 +1754,10 @@ function App() {
                   value={scale.id}
                   style={getHeaderSelectStyle(scale.name, { min: 9, max: 27 })}
                   onChange={(event) => {
-                    setScaleId(event.target.value)
-                    clearProgression()
+                    updateSettings('scale', () => {
+                      setScaleId(event.target.value)
+                      clearProgression()
+                    })
                   }}
                 >
                   {Object.entries(groupedScales).map(([family, familyScales]) => (
@@ -1738,7 +1780,7 @@ function App() {
                   <select
                     value={flavor.id}
                     style={getHeaderSelectStyle(flavor.name, { min: 9, max: 24 })}
-                    onChange={(event) => setFlavorId(event.target.value)}
+                    onChange={(event) => updateSettings('flavor', () => setFlavorId(event.target.value))}
                   >
                     {Object.entries(groupedFlavors).map(([family, familyFlavors]) => (
                       <optgroup key={family} label={family}>
@@ -1757,7 +1799,7 @@ function App() {
                   <select
                     value={complexity.id}
                     style={getHeaderSelectStyle(complexity.label, { min: 10, max: 20 })}
-                    onChange={(event) => setComplexityId(event.target.value)}
+                    onChange={(event) => updateSettings('complexity', () => setComplexityId(event.target.value))}
                   >
                     {CHORD_COMPLEXITY_OPTIONS.map((item) => (
                       <option key={item.id} value={item.id}>
@@ -1776,8 +1818,10 @@ function App() {
                   value={arrangement.complexity.id}
                   style={getHeaderSelectStyle(arrangement.complexity.label, { min: 10, max: 20 })}
                   onChange={(event) => {
-                    setArrangementComplexityId(event.target.value)
-                    clearProgression()
+                    updateSettings('arrangementComplexity', () => {
+                      setArrangementComplexityId(event.target.value)
+                      clearProgression()
+                    })
                   }}
                 >
                   {ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => (
@@ -2520,9 +2564,11 @@ function App() {
                           className="text-action-button"
                           type="button"
                           onClick={() => {
-                            setRootLabel(suggestion.rootLabel)
-                            setScaleId(suggestion.scaleId)
-                            setMode('scales')
+                            updateSettings(['root', 'scale', 'mode'], () => {
+                              setRootLabel(suggestion.rootLabel)
+                              setScaleId(suggestion.scaleId)
+                              setMode('scales')
+                            })
                           }}
                         >
                           Open scale

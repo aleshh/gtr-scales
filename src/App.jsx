@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { Gauge, Metronome, X } from 'lucide-react'
+import { Gauge, Metronome, Music4, X } from 'lucide-react'
 import './App.css'
 import {
   ROOT_OPTIONS,
@@ -1045,6 +1045,7 @@ function TunerTool() {
 }
 
 function App() {
+  const headerRef = useRef(null)
   const [mode, setMode] = useState(() => readQueryState(window.location.search).mode)
   const [instrument, setInstrument] = useState(() => readQueryState(window.location.search).instrument)
   const [rootLabel, setRootLabel] = useState(() => readQueryState(window.location.search).root)
@@ -1066,6 +1067,26 @@ function App() {
   const [customChordRootLabel, setCustomChordRootLabel] = useState(() => readQueryState(window.location.search).root)
   const [customChordQualityId, setCustomChordQualityId] = useState('maj')
   const [openTools, setOpenTools] = useState({ metronome: false, tuner: false })
+
+  useEffect(() => {
+    const header = headerRef.current
+    if (!header) return undefined
+
+    function updateHeaderOffset() {
+      document.documentElement.style.setProperty('--header-offset', `${Math.ceil(header.getBoundingClientRect().height)}px`)
+    }
+
+    updateHeaderOffset()
+    const resizeObserver = new ResizeObserver(updateHeaderOffset)
+    resizeObserver.observe(header)
+    window.addEventListener('resize', updateHeaderOffset)
+
+    return () => {
+      resizeObserver.disconnect()
+      window.removeEventListener('resize', updateHeaderOffset)
+      document.documentElement.style.removeProperty('--header-offset')
+    }
+  }, [])
 
   const groupedScales = groupItemsByFamily(SCALE_LIBRARY)
   const groupedFlavors = groupItemsByFamily(CHORD_FLAVOR_LIBRARY)
@@ -1125,13 +1146,6 @@ function App() {
       : mode === 'compose'
         ? `${root.label} ${scale.name} compose`
         : `${root.label} ${scale.name} arrangement`
-  const controlIntro = mode === 'scales'
-    ? 'Generate degree-labeled fingerboard charts and practice positions for common modes, bebop scales, symmetric sounds, and more unusual harmonic colors. Built for practical instrument reference, not perfectly key-spelled notation.'
-    : mode === 'chords'
-      ? 'Generate practical chord worlds by root and harmonic flavor, ordered for real playing and writing rather than exhaustive theory coverage. Built for musical usefulness first, not strict completeness.'
-      : mode === 'compose'
-        ? 'Build and edit chord progressions from the selected arrangement palette, with random gap-filling and per-chord scale suggestions.'
-        : 'Build a composition palette from a root and scale: likely chords first, useful grips, chord-scale choices, and a quick read on how much the root scale rubs against each chord.'
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -1591,33 +1605,10 @@ function App() {
 
   return (
     <main className="app-shell">
-      <div className="tool-launcher" aria-label="Practice tools">
-        <button
-          className="tool-icon-button is-metronome"
-          type="button"
-          aria-label="Open metronome"
-          aria-pressed={openTools.metronome}
-          title="Metronome"
-          onClick={() => setOpenTools((current) => ({ ...current, metronome: !current.metronome }))}
-        >
-          <Metronome size={21} strokeWidth={2.2} aria-hidden="true" />
-        </button>
-        <button
-          className="tool-icon-button is-tuner"
-          type="button"
-          aria-label="Open tuner"
-          aria-pressed={openTools.tuner}
-          title="Tuner"
-          onClick={() => setOpenTools((current) => ({ ...current, tuner: !current.tuner }))}
-        >
-          <Gauge size={21} strokeWidth={2.2} aria-hidden="true" />
-        </button>
-      </div>
-
       {openTools.metronome ? (
         <FloatingToolWindow
           title="Metronome"
-          defaultPosition={{ x: window.innerWidth - 180, y: 86 }}
+          defaultPosition={{ x: window.innerWidth - 180, y: 74 }}
           onClose={() => setOpenTools((current) => ({ ...current, metronome: false }))}
         >
           <MetronomeTool />
@@ -1627,18 +1618,20 @@ function App() {
       {openTools.tuner ? (
         <FloatingToolWindow
           title="Tuner"
-          defaultPosition={{ x: window.innerWidth - 180, y: 318 }}
+          defaultPosition={{ x: window.innerWidth - 180, y: 274 }}
           onClose={() => setOpenTools((current) => ({ ...current, tuner: false }))}
         >
           <TunerTool />
         </FloatingToolWindow>
       ) : null}
 
-      <section className="control-panel">
-        <p className="eyebrow control-eyebrow">Scale and chord fingering chart generator</p>
-        <p className="control-intro">{controlIntro}</p>
-
+      <header className="control-panel" ref={headerRef}>
         <div className="control-toolbar">
+          <div className="nav-brand" aria-label="IntervalKit">
+            <Music4 size={20} strokeWidth={2.3} aria-hidden="true" />
+            <strong>IntervalKit</strong>
+          </div>
+
           <div className="mode-instrument-group">
             <div className="mode-field">
               <span id="mode-picker-label">Mode</span>
@@ -1686,7 +1679,7 @@ function App() {
           </div>
 
           <div className="control-selectors">
-            <label className="control-field">
+            <label className="control-field root-field">
               <span>Root note</span>
               <select
                 value={root.label}
@@ -1705,7 +1698,7 @@ function App() {
             </label>
 
             {mode === 'scales' || mode === 'arrangement' || mode === 'compose' ? (
-              <label className="control-field">
+              <label className="control-field scale-field">
                 <span>Mode / scale</span>
                 <select
                   value={scale.id}
@@ -1729,7 +1722,7 @@ function App() {
 
             {mode === 'chords' ? (
               <>
-                <label className="control-field">
+                <label className="control-field flavor-field">
                   <span>Flavor</span>
                   <select value={flavor.id} onChange={(event) => setFlavorId(event.target.value)}>
                     {Object.entries(groupedFlavors).map(([family, familyFlavors]) => (
@@ -1744,7 +1737,7 @@ function App() {
                   </select>
                 </label>
 
-                <label className="control-field">
+                <label className="control-field complexity-field">
                   <span>Complexity</span>
                   <select value={complexity.id} onChange={(event) => setComplexityId(event.target.value)}>
                     {CHORD_COMPLEXITY_OPTIONS.map((item) => (
@@ -1758,7 +1751,7 @@ function App() {
             ) : null}
 
             {mode === 'arrangement' || mode === 'compose' ? (
-              <label className="control-field">
+              <label className="control-field complexity-field">
                 <span>Complexity</span>
                 <select
                   value={arrangement.complexity.id}
@@ -1776,8 +1769,34 @@ function App() {
               </label>
             ) : null}
           </div>
+
+          <div className="tool-launcher" aria-label="Practice tools">
+            <span>Tools</span>
+            <div className="tool-button-row">
+              <button
+                className="tool-icon-button is-metronome"
+                type="button"
+                aria-label="Open metronome"
+                aria-pressed={openTools.metronome}
+                title="Metronome"
+                onClick={() => setOpenTools((current) => ({ ...current, metronome: !current.metronome }))}
+              >
+                <Metronome size={19} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+              <button
+                className="tool-icon-button is-tuner"
+                type="button"
+                aria-label="Open tuner"
+                aria-pressed={openTools.tuner}
+                title="Tuner"
+                onClick={() => setOpenTools((current) => ({ ...current, tuner: !current.tuner }))}
+              >
+                <Gauge size={19} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
         </div>
-      </section>
+      </header>
 
       <section className="hero-panel">
         <div className="hero-copy">

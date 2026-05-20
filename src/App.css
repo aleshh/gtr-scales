@@ -435,7 +435,7 @@
 }
 
 .control-field select {
-  width: auto;
+  width: var(--select-width, auto);
   min-height: 34px;
   height: 34px;
   padding: 7px 10px;
@@ -453,23 +453,6 @@
   flex: 0 0 auto;
   flex-basis: auto;
   min-width: 0;
-}
-
-.instrument-field select {
-  width: 104px;
-}
-
-.root-field select {
-  width: 76px;
-}
-
-.scale-field select,
-.flavor-field select {
-  width: 148px;
-}
-
-.complexity-field select {
-  width: 128px;
 }
 
 @media (max-width: 860px) {

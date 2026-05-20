@@ -427,6 +427,21 @@ function groupItemsByFamily(items) {
   }, {})
 }
 
+function getHeaderSelectStyle(label, {
+  min = 5,
+  max = 24,
+  characterWidth = 7.4,
+  chromeWidth = 44,
+} = {}) {
+  const minWidth = (min * characterWidth) + chromeWidth
+  const maxWidth = (max * characterWidth) + chromeWidth
+  const contentWidth = (label.length * characterWidth) + chromeWidth
+
+  return {
+    '--select-width': `${Math.max(minWidth, Math.min(maxWidth, contentWidth))}px`,
+  }
+}
+
 function FretboardChart({
   title,
   subtitle,
@@ -1095,6 +1110,12 @@ function App() {
   const flavor = CHORD_FLAVOR_LIBRARY.find((item) => item.id === flavorId) ?? CHORD_FLAVOR_LIBRARY[0]
   const complexity = CHORD_COMPLEXITY_OPTIONS.find((item) => item.id === complexityId) ?? CHORD_COMPLEXITY_OPTIONS[1]
   const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId)
+  const instrumentLabel = {
+    guitar: 'Guitar',
+    piano: 'Piano',
+    cello: 'Cello',
+    'alto-recorder': 'Alto recorder',
+  }[instrument] ?? 'Guitar'
   const isCello = instrument === 'cello'
   const isRecorder = instrument === 'alto-recorder'
   const isClarinet = instrument === 'clarinet'
@@ -1669,7 +1690,11 @@ function App() {
 
             <label className="control-field instrument-field">
               <span>Instrument</span>
-              <select value={instrument} onChange={(event) => setInstrument(event.target.value)}>
+              <select
+                value={instrument}
+                style={getHeaderSelectStyle(instrumentLabel, { min: 7, max: 15 })}
+                onChange={(event) => setInstrument(event.target.value)}
+              >
                 <option value="guitar">Guitar</option>
                 <option value="piano">Piano</option>
                 <option value="cello">Cello</option>
@@ -1683,6 +1708,12 @@ function App() {
               <span>Root note</span>
               <select
                 value={root.label}
+                style={getHeaderSelectStyle(root.label, {
+                  min: 1,
+                  max: 2,
+                  characterWidth: 10,
+                  chromeWidth: 48,
+                })}
                 onChange={(event) => {
                   setRootLabel(event.target.value)
                   setCustomChordRootLabel(event.target.value)
@@ -1702,6 +1733,7 @@ function App() {
                 <span>Mode / scale</span>
                 <select
                   value={scale.id}
+                  style={getHeaderSelectStyle(scale.name, { min: 9, max: 27 })}
                   onChange={(event) => {
                     setScaleId(event.target.value)
                     clearProgression()
@@ -1724,7 +1756,11 @@ function App() {
               <>
                 <label className="control-field flavor-field">
                   <span>Flavor</span>
-                  <select value={flavor.id} onChange={(event) => setFlavorId(event.target.value)}>
+                  <select
+                    value={flavor.id}
+                    style={getHeaderSelectStyle(flavor.name, { min: 9, max: 24 })}
+                    onChange={(event) => setFlavorId(event.target.value)}
+                  >
                     {Object.entries(groupedFlavors).map(([family, familyFlavors]) => (
                       <optgroup key={family} label={family}>
                         {familyFlavors.map((item) => (
@@ -1739,7 +1775,11 @@ function App() {
 
                 <label className="control-field complexity-field">
                   <span>Complexity</span>
-                  <select value={complexity.id} onChange={(event) => setComplexityId(event.target.value)}>
+                  <select
+                    value={complexity.id}
+                    style={getHeaderSelectStyle(complexity.label, { min: 10, max: 20 })}
+                    onChange={(event) => setComplexityId(event.target.value)}
+                  >
                     {CHORD_COMPLEXITY_OPTIONS.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.label}
@@ -1755,6 +1795,7 @@ function App() {
                 <span>Complexity</span>
                 <select
                   value={arrangement.complexity.id}
+                  style={getHeaderSelectStyle(arrangement.complexity.label, { min: 10, max: 20 })}
                   onChange={(event) => {
                     setArrangementComplexityId(event.target.value)
                     clearProgression()

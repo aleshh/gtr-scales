@@ -39,12 +39,12 @@ import { buildChordGroups, getChordName } from './lib/chords'
 import { buildArrangement } from './lib/arrangements'
 
 const DEFAULT_QUERY_STATE = {
-  mode: 'arrangement',
+  mode: 'harmony',
   root: 'E',
   scale: 'phrygian',
   flavor: 'major',
   complexity: 'sevenths',
-  arrangementComplexity: 'folk-rock',
+  harmonyComplexity: 'folk-rock',
   instrument: 'guitar',
 }
 
@@ -55,19 +55,24 @@ const QUERY_SETTING_KEYS = [
   'scale',
   'flavor',
   'complexity',
-  'arrangementComplexity',
+  'harmonyComplexity',
 ]
 
-const VALID_MODES = new Set(['scales', 'chords', 'arrangement', 'compose'])
+const VALID_MODES = new Set(['scales', 'chords', 'harmony', 'compose'])
 const VALID_INSTRUMENTS = new Set(['guitar', 'piano', 'cello', 'alto-recorder', 'clarinet'])
 const VALID_ROOTS = new Set(ROOT_OPTIONS.map((option) => option.label))
 const VALID_SCALES = new Set(SCALE_LIBRARY.map((item) => item.id))
 const VALID_FLAVORS = new Set(CHORD_FLAVOR_LIBRARY.map((item) => item.id))
 const VALID_COMPLEXITIES = new Set(CHORD_COMPLEXITY_OPTIONS.map((item) => item.id))
-const VALID_ARRANGEMENT_COMPLEXITIES = new Set(ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => item.id))
+const VALID_HARMONY_COMPLEXITIES = new Set(ARRANGEMENT_COMPLEXITY_OPTIONS.map((item) => item.id))
 
 function getValidQueryValue(params, key, validValues, fallback) {
   const value = params.get(key)
+  return value && validValues.has(value) ? value : fallback
+}
+
+function getValidQueryValueFromKeys(params, keys, validValues, fallback) {
+  const value = keys.map((key) => params.get(key)).find(Boolean)
   return value && validValues.has(value) ? value : fallback
 }
 
@@ -81,7 +86,7 @@ function readQueryState(search = '') {
     scale: getValidQueryValue(params, 'scale', VALID_SCALES, DEFAULT_QUERY_STATE.scale),
     flavor: getValidQueryValue(params, 'flavor', VALID_FLAVORS, DEFAULT_QUERY_STATE.flavor),
     complexity: getValidQueryValue(params, 'complexity', VALID_COMPLEXITIES, DEFAULT_QUERY_STATE.complexity),
-    arrangementComplexity: getValidQueryValue(params, 'arrangementComplexity', VALID_ARRANGEMENT_COMPLEXITIES, DEFAULT_QUERY_STATE.arrangementComplexity),
+    harmonyComplexity: getValidQueryValueFromKeys(params, ['harmonyComplexity', 'arrangementComplexity'], VALID_HARMONY_COMPLEXITIES, DEFAULT_QUERY_STATE.harmonyComplexity),
   }
 }
 
@@ -1082,7 +1087,7 @@ function App() {
   const [scaleId, setScaleId] = useState(() => readQueryState(window.location.search).scale)
   const [flavorId, setFlavorId] = useState(() => readQueryState(window.location.search).flavor)
   const [complexityId, setComplexityId] = useState(() => readQueryState(window.location.search).complexity)
-  const [arrangementComplexityId, setArrangementComplexityId] = useState(() => readQueryState(window.location.search).arrangementComplexity)
+  const [arrangementComplexityId, setArrangementComplexityId] = useState(() => readQueryState(window.location.search).harmonyComplexity)
   const [showArrangementFingerings, setShowArrangementFingerings] = useState(false)
   const [openScaleCharts, setOpenScaleCharts] = useState(() => new Set())
   const [selectedArrangementChordId, setSelectedArrangementChordId] = useState(null)
@@ -1161,7 +1166,7 @@ function App() {
       ? `${root.label} ${flavor.name} chords`
       : mode === 'compose'
         ? `${root.label} ${scale.name} compose`
-        : `${root.label} ${scale.name} arrangement`
+        : `${root.label} ${scale.name} harmony`
 
   function updateSettings(keys, action) {
     const nextKeys = Array.isArray(keys) ? keys : [keys]
@@ -1184,7 +1189,7 @@ function App() {
       scale: scaleId,
       flavor: flavorId,
       complexity: complexityId,
-      arrangementComplexity: arrangementComplexityId,
+      harmonyComplexity: arrangementComplexityId,
     }
 
     QUERY_SETTING_KEYS.forEach((key) => {
@@ -1221,7 +1226,7 @@ function App() {
       setScaleId(nextState.scale)
       setFlavorId(nextState.flavor)
       setComplexityId(nextState.complexity)
-      setArrangementComplexityId(nextState.arrangementComplexity)
+      setArrangementComplexityId(nextState.harmonyComplexity)
     }
 
     window.addEventListener('popstate', syncFromUrl)
@@ -1507,7 +1512,7 @@ function App() {
           <div>
             <p className="info-label">Primary scale</p>
             <h4>{root.label} {scale.name}</h4>
-            <p>Root-scale reference for this arrangement. {scale.sound}</p>
+            <p>Root-scale reference for this harmony map. {scale.sound}</p>
           </div>
 
           <button
@@ -1675,11 +1680,11 @@ function App() {
               <span id="mode-picker-label">Mode</span>
               <div className="mode-toggle" role="tablist" aria-labelledby="mode-picker-label">
                 <button
-                  className={mode === 'arrangement' ? 'is-active' : ''}
+                  className={mode === 'harmony' ? 'is-active' : ''}
                   type="button"
-                  onClick={() => updateSettings('mode', () => setMode('arrangement'))}
+                  onClick={() => updateSettings('mode', () => setMode('harmony'))}
                 >
-                  Arrangement
+                  Harmony
                 </button>
                 <button
                   className={mode === 'scales' ? 'is-active' : ''}
@@ -1747,7 +1752,7 @@ function App() {
               </select>
             </label>
 
-            {mode === 'scales' || mode === 'arrangement' || mode === 'compose' ? (
+            {mode === 'scales' || mode === 'harmony' || mode === 'compose' ? (
               <label className="control-field scale-field">
                 <span>Mode / scale</span>
                 <select
@@ -1811,14 +1816,14 @@ function App() {
               </>
             ) : null}
 
-            {mode === 'arrangement' || mode === 'compose' ? (
+            {mode === 'harmony' || mode === 'compose' ? (
               <label className="control-field complexity-field">
                 <span>Complexity</span>
                 <select
                   value={arrangement.complexity.id}
                   style={getHeaderSelectStyle(arrangement.complexity.label, { min: 10, max: 20 })}
                   onChange={(event) => {
-                    updateSettings('arrangementComplexity', () => {
+                    updateSettings('harmonyComplexity', () => {
                       setArrangementComplexityId(event.target.value)
                       clearProgression()
                     })
@@ -1889,7 +1894,7 @@ function App() {
                 <span>Pitch collection</span>
                 <strong>{pitchCollection.join('  ')}</strong>
               </div>
-              {mode === 'arrangement' || mode === 'compose' ? (
+              {mode === 'harmony' || mode === 'compose' ? (
                 <div>
                   <span>Palette</span>
                   <strong>{arrangement.complexity.label}</strong>
@@ -2082,11 +2087,11 @@ function App() {
         </section>
       ) : (
         <section className="arrangement-section">
-          {mode === 'arrangement' ? (
+          {mode === 'harmony' ? (
             <>
               <div className="section-heading">
                 <div>
-                  <p className="eyebrow">Arrangement mode</p>
+                  <p className="eyebrow">Harmony mode</p>
                   <h2>Primary scale</h2>
                 </div>
                 <p>
@@ -2097,6 +2102,9 @@ function App() {
 
               {renderPrimaryScaleReference()}
 
+              <div className="palette-heading">
+                <h2>{arrangement.complexity.label} chords in the {scale.name} scale</h2>
+              </div>
               {renderChordPalette()}
             </>
           ) : null}
@@ -2436,11 +2444,11 @@ function App() {
             </div>
           ) : null}
 
-          {mode === 'arrangement' && selectedArrangementChord ? (
+          {mode === 'harmony' && selectedArrangementChord ? (
             <article className="arrangement-detail">
               <div className="chord-row-copy">
                 <div className="chord-row-title">
-                  <h3>{selectedArrangementChord.name}</h3>
+                  <h2>{selectedArrangementChord.name}</h2>
                   <p>{selectedArrangementChord.numeral} · {selectedArrangementChord.summary}</p>
                 </div>
 
@@ -2527,7 +2535,7 @@ function App() {
 
               {selectedAlternativeScaleSuggestions.length > 0 ? (
               <div className="scale-suggestions">
-                <p className="info-label">Alternative scales</p>
+                <h2>Alternative scales for {selectedArrangementChord.name}</h2>
 
                 <div className="scale-suggestion-list">
                   {selectedAlternativeScaleSuggestions.map((suggestion) => (

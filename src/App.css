@@ -1758,6 +1758,7 @@
   flex-wrap: wrap;
 }
 
+.chord-row-title h2,
 .chord-row-title h3 {
   margin: 0;
   font-size: 1.28rem;
@@ -1842,6 +1843,12 @@
 .arrangement-note {
   max-width: 760px;
   color: var(--muted);
+}
+
+.palette-heading h2 {
+  margin: 0 0 10px;
+  color: var(--ink);
+  font-size: 1.45rem;
 }
 
 .arrangement-tabs {
@@ -2359,6 +2366,12 @@
   display: grid;
   gap: 12px;
   padding-top: 4px;
+}
+
+.scale-suggestions h2 {
+  margin: 0;
+  color: var(--ink);
+  font-size: 1.45rem;
 }
 
 .scale-suggestion-list {

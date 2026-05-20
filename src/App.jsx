@@ -39,7 +39,7 @@ import { buildChordGroups, getChordName } from './lib/chords'
 import { buildArrangement } from './lib/arrangements'
 
 const DEFAULT_QUERY_STATE = {
-  mode: 'scales',
+  mode: 'arrangement',
   root: 'E',
   scale: 'phrygian',
   flavor: 'major',
@@ -1637,6 +1637,13 @@ function App() {
               <span id="mode-picker-label">Mode</span>
               <div className="mode-toggle" role="tablist" aria-labelledby="mode-picker-label">
                 <button
+                  className={mode === 'arrangement' ? 'is-active' : ''}
+                  type="button"
+                  onClick={() => setMode('arrangement')}
+                >
+                  Arrangement
+                </button>
+                <button
                   className={mode === 'scales' ? 'is-active' : ''}
                   type="button"
                   onClick={() => setMode('scales')}
@@ -1649,13 +1656,6 @@ function App() {
                   onClick={() => setMode('chords')}
                 >
                   Chords
-                </button>
-                <button
-                  className={mode === 'arrangement' ? 'is-active' : ''}
-                  type="button"
-                  onClick={() => setMode('arrangement')}
-                >
-                  Arrangement
                 </button>
                 <button
                   className={mode === 'compose' ? 'is-active' : ''}
@@ -1836,24 +1836,24 @@ function App() {
 
         <div className="hero-summary">
           {mode !== 'chords' ? (
-            <>
-              <div className="summary-chip">
+            <div className="summary-chip summary-chip-group">
+              <div>
                 <span>Formula</span>
                 <strong>{scaleFormula}</strong>
               </div>
-              <div className="summary-chip">
+              <div>
                 <span>Pitch collection</span>
                 <strong>{pitchCollection.join('  ')}</strong>
               </div>
-            </>
-          ) : null}
-
-          {mode === 'arrangement' || mode === 'compose' ? (
-            <div className="summary-chip">
-              <span>Palette</span>
-              <strong>{arrangement.complexity.label}</strong>
+              {mode === 'arrangement' || mode === 'compose' ? (
+                <div>
+                  <span>Palette</span>
+                  <strong>{arrangement.complexity.label}</strong>
+                </div>
+              ) : null}
             </div>
           ) : null}
+
         </div>
       </section>
 

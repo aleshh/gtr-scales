@@ -278,6 +278,17 @@
   backdrop-filter: blur(8px);
 }
 
+.summary-chip-group {
+  display: grid;
+  gap: 14px;
+  padding-block: 14px;
+}
+
+.summary-chip-group > div {
+  display: grid;
+  gap: 1px;
+}
+
 .summary-chip span,
 .control-field span,
 .mode-field > span,
@@ -289,6 +300,10 @@
   text-transform: uppercase;
   font-weight: 700;
   color: var(--muted);
+}
+
+.summary-chip-group span {
+  margin-bottom: 0;
 }
 
 .control-panel .control-field span,

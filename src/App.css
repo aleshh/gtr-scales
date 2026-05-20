@@ -2196,6 +2196,10 @@
   width: 74px;
 }
 
+.compose-sound-field select {
+  width: 136px;
+}
+
 .compose-volume-control {
   width: 118px;
   display: grid;

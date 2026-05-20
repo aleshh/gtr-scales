@@ -123,6 +123,7 @@ const MAX_PROGRESSION_BARS = 500
 const DEFAULT_PROGRESSION_TEMPO = 96
 const DEFAULT_PROGRESSION_CHORD_VOLUME = 82
 const DEFAULT_PROGRESSION_CLICK_VOLUME = 46
+const DEFAULT_PLAYBACK_VOICE = 'auto'
 const PROGRESSION_DURATION_OPTIONS = [
   { label: '1/8 bar', ticks: 1 },
   { label: '1/4 bar', ticks: 2 },
@@ -138,6 +139,26 @@ const PROGRESSION_CLICK_OPTIONS = [
   { id: 'beat', label: 'Beats' },
   { id: 'eighth', label: 'Eighths' },
 ]
+const PLAYBACK_VOICE_OPTIONS = [
+  { id: 'auto', label: 'Auto' },
+  { id: 'guitar', label: 'Guitar' },
+  { id: 'cello', label: 'Cello' },
+  { id: 'electric-piano', label: 'Electric piano' },
+  { id: 'recorder', label: 'Recorder' },
+  { id: 'clarinet', label: 'Clarinet' },
+  { id: 'sine', label: 'Reference tone' },
+]
+
+function getResolvedPlaybackVoice(voice, instrument) {
+  if (voice !== 'auto') return voice
+  if (instrument === 'guitar') return 'guitar'
+  if (instrument === 'cello') return 'cello'
+  if (instrument === 'alto-recorder') return 'recorder'
+  if (instrument === 'clarinet') return 'clarinet'
+
+  return 'electric-piano'
+}
+
 const CUSTOM_CHORD_QUALITY_OPTIONS = [
   'maj',
   'min',
@@ -1210,6 +1231,7 @@ function App() {
   const [openTools, setOpenTools] = useState({ metronome: false, tuner: false })
   const [progressionTempo, setProgressionTempo] = useState(DEFAULT_PROGRESSION_TEMPO)
   const [progressionClickMode, setProgressionClickMode] = useState('beat')
+  const [playbackVoice, setPlaybackVoice] = useState(DEFAULT_PLAYBACK_VOICE)
   const [progressionChordVolume, setProgressionChordVolume] = useState(DEFAULT_PROGRESSION_CHORD_VOLUME)
   const [progressionClickVolume, setProgressionClickVolume] = useState(DEFAULT_PROGRESSION_CLICK_VOLUME)
   const [isProgressionLooping, setIsProgressionLooping] = useState(false)
@@ -1240,7 +1262,9 @@ function App() {
     piano: 'Piano',
     cello: 'Cello',
     'alto-recorder': 'Alto recorder',
+    clarinet: 'Clarinet',
   }[instrument] ?? 'Guitar'
+  const activePlaybackVoice = getResolvedPlaybackVoice(playbackVoice, instrument)
   const isCello = instrument === 'cello'
   const isRecorder = instrument === 'alto-recorder'
   const isClarinet = instrument === 'clarinet'
@@ -1432,21 +1456,145 @@ function App() {
     progressionPlaybackRef.current.scheduledNodes.push(oscillator)
   }
 
-  function scheduleElectricPianoNote(audioContext, destination, frequency, startTime, duration, velocity) {
-    const noteGain = audioContext.createGain()
-    const endTime = Math.max(startTime + 0.08, startTime + duration)
-    const sustainStart = Math.min(startTime + 0.24, endTime - 0.04)
-    const partials = [
+  function getVoicePartials(voice) {
+    if (voice === 'sine') {
+      return [{ type: 'sine', ratio: 1, gain: 1 }]
+    }
+
+    if (voice === 'guitar' || voice === 'pluck') {
+      return [
+        { type: 'triangle', ratio: 1, gain: 0.86 },
+        { type: 'sine', ratio: 2.01, gain: 0.2 },
+        { type: 'square', ratio: 3, gain: 0.028 },
+      ]
+    }
+
+    if (voice === 'cello' || voice === 'bass') {
+      return [
+        { type: 'sawtooth', ratio: 1, gain: 0.12 },
+        { type: 'triangle', ratio: 1, gain: 0.62 },
+        { type: 'sine', ratio: 2, gain: 0.2 },
+        { type: 'sine', ratio: 3, gain: 0.06 },
+      ]
+    }
+
+    if (voice === 'recorder') {
+      return [
+        { type: 'sine', ratio: 1, gain: 0.78 },
+        { type: 'triangle', ratio: 2, gain: 0.12 },
+        { type: 'sine', ratio: 3, gain: 0.06 },
+      ]
+    }
+
+    if (voice === 'clarinet') {
+      return [
+        { type: 'triangle', ratio: 1, gain: 0.52 },
+        { type: 'sine', ratio: 3, gain: 0.24 },
+        { type: 'sine', ratio: 5, gain: 0.1 },
+      ]
+    }
+
+    return [
       { type: 'sine', ratio: 1, gain: 0.74 },
       { type: 'triangle', ratio: 2, gain: 0.24 },
       { type: 'sine', ratio: 3.01, gain: 0.11 },
     ]
+  }
+
+  function getVoiceEnvelope(voice, startTime, duration, velocity) {
+    const endTime = Math.max(startTime + 0.08, startTime + duration)
+
+    if (voice === 'guitar' || voice === 'pluck') {
+      const endTime = startTime + Math.max(duration, 1.8)
+      const decayTime = Math.min(endTime - 0.02, startTime + 0.48)
+      const ringTime = Math.min(endTime - 0.01, Math.max(decayTime + 0.001, startTime + 1.15))
+
+      return {
+        endTime,
+        points: [
+          ['linearRampToValueAtTime', velocity, startTime + 0.006],
+          ['exponentialRampToValueAtTime', Math.max(0.012, velocity * 0.3), decayTime],
+          ['exponentialRampToValueAtTime', Math.max(0.005, velocity * 0.12), ringTime],
+          ['exponentialRampToValueAtTime', 0.0001, endTime],
+        ],
+      }
+    }
+
+    if (voice === 'cello' || voice === 'bass') {
+      const attackTime = Math.max(startTime + 0.001, Math.min(startTime + 0.09, endTime - 0.02))
+      const sustainTime = Math.min(Math.max(attackTime + 0.001, endTime - 0.18), endTime - 0.001)
+
+      return {
+        endTime,
+        points: [
+          ['linearRampToValueAtTime', velocity * 0.78, attackTime],
+          ['setValueAtTime', velocity * 0.72, sustainTime],
+          ['linearRampToValueAtTime', 0.0001, endTime],
+        ],
+      }
+    }
+
+    if (voice === 'recorder') {
+      const attackTime = Math.max(startTime + 0.001, Math.min(startTime + 0.035, endTime - 0.02))
+      const sustainTime = Math.min(Math.max(attackTime + 0.001, endTime - 0.1), endTime - 0.001)
+
+      return {
+        endTime,
+        points: [
+          ['linearRampToValueAtTime', velocity * 0.62, attackTime],
+          ['setValueAtTime', velocity * 0.56, sustainTime],
+          ['linearRampToValueAtTime', 0.0001, endTime],
+        ],
+      }
+    }
+
+    if (voice === 'clarinet') {
+      const attackTime = Math.max(startTime + 0.001, Math.min(startTime + 0.055, endTime - 0.02))
+      const sustainTime = Math.min(Math.max(attackTime + 0.001, endTime - 0.12), endTime - 0.001)
+
+      return {
+        endTime,
+        points: [
+          ['linearRampToValueAtTime', velocity * 0.68, attackTime],
+          ['setValueAtTime', velocity * 0.64, sustainTime],
+          ['linearRampToValueAtTime', 0.0001, endTime],
+        ],
+      }
+    }
+
+    if (voice === 'sine') {
+      return {
+        endTime,
+        points: [
+          ['linearRampToValueAtTime', velocity * 0.7, startTime + 0.018],
+          ['setValueAtTime', velocity * 0.58, Math.max(startTime + 0.02, endTime - 0.1)],
+          ['exponentialRampToValueAtTime', 0.0001, endTime],
+        ],
+      }
+    }
+
+    const sustainStart = Math.min(startTime + 0.24, endTime - 0.04)
+
+    return {
+      endTime,
+      points: [
+        ['linearRampToValueAtTime', velocity, startTime + 0.012],
+        ['exponentialRampToValueAtTime', Math.max(0.015, velocity * 0.42), sustainStart],
+        ['setValueAtTime', Math.max(0.012, velocity * 0.34), Math.max(sustainStart, endTime - 0.1)],
+        ['exponentialRampToValueAtTime', 0.0001, endTime],
+      ],
+    }
+  }
+
+  function scheduleSynthNote(audioContext, destination, frequency, startTime, duration, velocity, voice) {
+    const noteGain = audioContext.createGain()
+    const partials = getVoicePartials(voice)
+    const envelope = getVoiceEnvelope(voice, startTime, duration, velocity)
 
     noteGain.gain.setValueAtTime(0.0001, startTime)
-    noteGain.gain.linearRampToValueAtTime(velocity, startTime + 0.012)
-    noteGain.gain.exponentialRampToValueAtTime(Math.max(0.015, velocity * 0.42), sustainStart)
-    noteGain.gain.setValueAtTime(Math.max(0.012, velocity * 0.34), Math.max(sustainStart, endTime - 0.1))
-    noteGain.gain.exponentialRampToValueAtTime(0.0001, endTime)
+    envelope.points.forEach(([method, value, time]) => {
+      noteGain.gain[method](value, time)
+    })
     noteGain.connect(destination)
 
     partials.forEach((partial) => {
@@ -1459,16 +1607,16 @@ function App() {
       oscillator.connect(partialGain)
       partialGain.connect(noteGain)
       oscillator.start(startTime)
-      oscillator.stop(endTime + 0.02)
+      oscillator.stop(envelope.endTime + 0.02)
       progressionPlaybackRef.current.scheduledNodes.push(oscillator)
     })
   }
 
-  function scheduleFrequencies(audioContext, destination, frequencies, startTime, duration, volume) {
+  function scheduleFrequencies(audioContext, destination, frequencies, startTime, duration, volume, voice = activePlaybackVoice) {
     const noteVelocity = (volume / 100) * Math.min(0.22, 0.6 / Math.max(1, frequencies.length))
 
     frequencies.forEach((frequency) => {
-      scheduleElectricPianoNote(audioContext, destination, frequency, startTime, duration, noteVelocity)
+      scheduleSynthNote(audioContext, destination, frequency, startTime, duration, noteVelocity, voice)
     })
   }
 
@@ -1505,7 +1653,7 @@ function App() {
     previewGain.gain.setValueAtTime(0.92, startTime)
     previewGain.connect(audioContext.destination)
     progressionPlaybackRef.current.scheduledNodes.push(previewGain)
-    scheduleElectricPianoNote(audioContext, previewGain, frequency, startTime, 0.72, 0.28)
+    scheduleSynthNote(audioContext, previewGain, frequency, startTime, 0.72, 0.28, activePlaybackVoice)
   }
 
   async function playVoicingPreview(rows) {
@@ -2637,6 +2785,22 @@ function App() {
                     }}
                   >
                     {PROGRESSION_CLICK_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="inline-select compose-sound-field">
+                  <span>Sound</span>
+                  <select
+                    value={playbackVoice}
+                    onChange={(event) => {
+                      stopProgressionPlayback()
+                      setPlaybackVoice(event.target.value)
+                    }}
+                  >
+                    {PLAYBACK_VOICE_OPTIONS.map((option) => (
                       <option key={option.id} value={option.id}>
                         {option.label}
                       </option>

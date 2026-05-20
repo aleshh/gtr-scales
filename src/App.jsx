@@ -360,6 +360,10 @@ function getClampedTempo(value) {
   return Math.max(30, Math.min(240, Math.round(nextValue)))
 }
 
+function getFrequencyFromMidi(midi) {
+  return 440 * (2 ** ((midi - 69) / 12))
+}
+
 function getChordPlaybackFrequencies(chord) {
   const quality = CHORD_QUALITIES[chord.qualityId ?? chord.quality]
 
@@ -379,8 +383,16 @@ function getChordPlaybackFrequencies(chord) {
     const voicedInterval = interval === 2 ? 14 : interval
     const midi = rootMidi + voicedInterval
 
-    return 440 * (2 ** ((midi - 69) / 12))
+    return getFrequencyFromMidi(midi)
   })
+}
+
+function getFretboardVoicingFrequencies(rows) {
+  return rows
+    .flatMap((row) => Object.values(row.notes))
+    .filter((note) => Number.isFinite(note.midiNote))
+    .sort((left, right) => left.midiNote - right.midiNote)
+    .map((note) => getFrequencyFromMidi(note.midiNote))
 }
 
 function getTypicalityLabel(value) {
@@ -530,6 +542,7 @@ function FretboardChart({
   showInlays = true,
   fixedFrets = false,
   onPlayNote = null,
+  onPlayVoicing = null,
 }) {
   const hasOpenStrings = frets.includes(0)
   const fretColumns = hasOpenStrings ? frets.filter((fret) => fret !== 0) : frets
@@ -542,6 +555,17 @@ function FretboardChart({
           <p>{subtitle}</p>
           {meta ? <p className="chart-meta">{meta}</p> : null}
         </div>
+        {onPlayVoicing ? (
+          <button
+            className="inline-play-button"
+            type="button"
+            aria-label={`Preview ${title}`}
+            title={`Preview ${title}`}
+            onClick={() => onPlayVoicing(rows)}
+          >
+            <Play size={14} />
+          </button>
+        ) : null}
       </div>
 
       <div className="chart-scroll">
@@ -1440,13 +1464,20 @@ function App() {
     })
   }
 
-  function scheduleProgressionChord(audioContext, destination, chord, startTime, duration, volume) {
-    const frequencies = getChordPlaybackFrequencies(chord)
+  function scheduleFrequencies(audioContext, destination, frequencies, startTime, duration, volume) {
     const noteVelocity = (volume / 100) * Math.min(0.22, 0.6 / Math.max(1, frequencies.length))
 
     frequencies.forEach((frequency) => {
       scheduleElectricPianoNote(audioContext, destination, frequency, startTime, duration, noteVelocity)
     })
+  }
+
+  function scheduleProgressionChord(audioContext, destination, chord, startTime, duration, volume) {
+    const frequencies = instrument === 'guitar' && chord.voicings?.[0]
+      ? getFretboardVoicingFrequencies(chord.voicings[0].rows)
+      : getChordPlaybackFrequencies(chord)
+
+    scheduleFrequencies(audioContext, destination, frequencies, startTime, duration, volume)
   }
 
   async function getPreviewAudioContext() {
@@ -1467,7 +1498,7 @@ function App() {
     if (!audioContext) return
 
     const midi = note.midiNote ?? 60 + (note.pitchClass ?? 0)
-    const frequency = 440 * (2 ** ((midi - 69) / 12))
+    const frequency = getFrequencyFromMidi(midi)
     const startTime = audioContext.currentTime + 0.01
     const previewGain = audioContext.createGain()
 
@@ -1477,10 +1508,14 @@ function App() {
     scheduleElectricPianoNote(audioContext, previewGain, frequency, startTime, 0.72, 0.28)
   }
 
-  async function playChordPreview(chord) {
+  async function playVoicingPreview(rows) {
     const audioContext = await getPreviewAudioContext()
 
     if (!audioContext) return
+
+    const frequencies = getFretboardVoicingFrequencies(rows)
+
+    if (frequencies.length < 1) return
 
     const startTime = audioContext.currentTime + 0.01
     const previewGain = audioContext.createGain()
@@ -1488,7 +1523,24 @@ function App() {
     previewGain.gain.setValueAtTime(0.95, startTime)
     previewGain.connect(audioContext.destination)
     progressionPlaybackRef.current.scheduledNodes.push(previewGain)
-    scheduleProgressionChord(audioContext, previewGain, chord, startTime, 1.35, progressionChordVolume)
+    scheduleFrequencies(audioContext, previewGain, frequencies, startTime, 1.35, progressionChordVolume)
+  }
+
+  async function playChordPreview(chord) {
+    const audioContext = await getPreviewAudioContext()
+
+    if (!audioContext) return
+
+    const startTime = audioContext.currentTime + 0.01
+    const previewGain = audioContext.createGain()
+    const frequencies = instrument === 'guitar' && chord.voicings?.[0]
+      ? getFretboardVoicingFrequencies(chord.voicings[0].rows)
+      : getChordPlaybackFrequencies(chord)
+
+    previewGain.gain.setValueAtTime(0.95, startTime)
+    previewGain.connect(audioContext.destination)
+    progressionPlaybackRef.current.scheduledNodes.push(previewGain)
+    scheduleFrequencies(audioContext, previewGain, frequencies, startTime, 1.35, progressionChordVolume)
   }
 
   function animateProgressionPlayback(audioContext, startedAt, tickDuration, totalTicks) {
@@ -2408,6 +2460,7 @@ function App() {
                               showInlays={false}
                               fixedFrets
                               onPlayNote={playNotePreview}
+                              onPlayVoicing={playVoicingPreview}
                             />
                           ))
                         ) : (
@@ -2991,6 +3044,7 @@ function App() {
                           showInlays={false}
                           fixedFrets
                           onPlayNote={playNotePreview}
+                          onPlayVoicing={playVoicingPreview}
                         />
                       ))
                     ) : isCello ? (

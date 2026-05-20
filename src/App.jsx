@@ -1060,7 +1060,6 @@ function TunerTool() {
 }
 
 function App() {
-  const headerRef = useRef(null)
   const [mode, setMode] = useState(() => readQueryState(window.location.search).mode)
   const [instrument, setInstrument] = useState(() => readQueryState(window.location.search).instrument)
   const [rootLabel, setRootLabel] = useState(() => readQueryState(window.location.search).root)
@@ -1082,26 +1081,6 @@ function App() {
   const [customChordRootLabel, setCustomChordRootLabel] = useState(() => readQueryState(window.location.search).root)
   const [customChordQualityId, setCustomChordQualityId] = useState('maj')
   const [openTools, setOpenTools] = useState({ metronome: false, tuner: false })
-
-  useEffect(() => {
-    const header = headerRef.current
-    if (!header) return undefined
-
-    function updateHeaderOffset() {
-      document.documentElement.style.setProperty('--header-offset', `${Math.ceil(header.getBoundingClientRect().height)}px`)
-    }
-
-    updateHeaderOffset()
-    const resizeObserver = new ResizeObserver(updateHeaderOffset)
-    resizeObserver.observe(header)
-    window.addEventListener('resize', updateHeaderOffset)
-
-    return () => {
-      resizeObserver.disconnect()
-      window.removeEventListener('resize', updateHeaderOffset)
-      document.documentElement.style.removeProperty('--header-offset')
-    }
-  }, [])
 
   const groupedScales = groupItemsByFamily(SCALE_LIBRARY)
   const groupedFlavors = groupItemsByFamily(CHORD_FLAVOR_LIBRARY)
@@ -1646,7 +1625,7 @@ function App() {
         </FloatingToolWindow>
       ) : null}
 
-      <header className="control-panel" ref={headerRef}>
+      <header className="control-panel">
         <div className="control-toolbar">
           <div className="nav-brand" aria-label="IntervalKit">
             <Music4 size={20} strokeWidth={2.3} aria-hidden="true" />

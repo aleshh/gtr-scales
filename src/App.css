@@ -1,7 +1,7 @@
 .app-shell {
   width: min(1320px, 100%);
   margin: 0 auto;
-  padding: calc(var(--header-offset, 64px) + 35px) 24px 64px;
+  padding: 0 24px 64px;
 }
 
 .tool-launcher {
@@ -232,8 +232,6 @@
 
 .hero-panel {
   margin-top: 24px;
-  padding-top: 24px;
-  border-top: 1px solid rgba(55, 90, 71, 0.18);
   display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(320px, 0.9fr);
   gap: 24px;
@@ -308,11 +306,12 @@
 }
 
 .control-panel {
-  position: fixed;
+  position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
   z-index: 45;
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
   padding: 8px 0;
   border-bottom: 1px solid rgba(55, 90, 71, 0.16);
   background: rgba(247, 252, 246, 0.97);
@@ -2469,7 +2468,11 @@
 
 @media (max-width: 720px) {
   .app-shell {
-    padding: 24px 14px 40px;
+    padding: 0 14px 40px;
+  }
+
+  .control-toolbar {
+    padding-inline: 14px;
   }
 
   .hero-panel,

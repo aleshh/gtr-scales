@@ -295,6 +295,25 @@ function getEventEndTick(event) {
   return event.startTick + event.durationTicks
 }
 
+function getProgressionPlaybackSegments(event) {
+  const eventEndTick = getEventEndTick(event)
+  const segmentStartTicks = [event.startTick]
+  const firstBarStartTick = Math.ceil((event.startTick + 1) / PROGRESSION_TICKS_PER_BAR) * PROGRESSION_TICKS_PER_BAR
+
+  for (let tick = firstBarStartTick; tick < eventEndTick; tick += PROGRESSION_TICKS_PER_BAR) {
+    segmentStartTicks.push(tick)
+  }
+
+  return segmentStartTicks.map((startTick, index) => {
+    const nextStartTick = segmentStartTicks[index + 1] ?? eventEndTick
+
+    return {
+      startTick,
+      durationTicks: nextStartTick - startTick,
+    }
+  })
+}
+
 function sortProgressionEvents(events) {
   return [...events].sort((left, right) => left.startTick - right.startTick || left.id.localeCompare(right.id))
 }
@@ -1736,14 +1755,16 @@ function App() {
 
       if (!chord) return
 
-      scheduleProgressionChord(
-        audioContext,
-        masterGain,
-        chord,
-        startedAt + event.startTick * tickDuration,
-        event.durationTicks * tickDuration,
-        progressionChordVolume,
-      )
+      getProgressionPlaybackSegments(event).forEach((segment) => {
+        scheduleProgressionChord(
+          audioContext,
+          masterGain,
+          chord,
+          startedAt + segment.startTick * tickDuration,
+          segment.durationTicks * tickDuration,
+          progressionChordVolume,
+        )
+      })
     })
 
     if (progressionClickMode !== 'off') {

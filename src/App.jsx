@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { Gauge, Metronome, Music4, X } from 'lucide-react'
+import { Gauge, Metronome, Music4, Pause, Play, Square, X } from 'lucide-react'
 import './App.css'
 import {
   ROOT_OPTIONS,
@@ -118,7 +118,11 @@ const PIANO_BLACK_KEY_LAYOUT = [
 ]
 const PIANO_KEY_LABELS = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
 const PROGRESSION_TICKS_PER_BAR = 8
+const BEATS_PER_BAR = 4
 const MAX_PROGRESSION_BARS = 500
+const DEFAULT_PROGRESSION_TEMPO = 96
+const DEFAULT_PROGRESSION_CHORD_VOLUME = 82
+const DEFAULT_PROGRESSION_CLICK_VOLUME = 46
 const PROGRESSION_DURATION_OPTIONS = [
   { label: '1/8 bar', ticks: 1 },
   { label: '1/4 bar', ticks: 2 },
@@ -127,6 +131,12 @@ const PROGRESSION_DURATION_OPTIONS = [
   { label: '2 bars', ticks: 16 },
   { label: '4 bars', ticks: 32 },
   { label: '8 bars', ticks: 64 },
+]
+const PROGRESSION_CLICK_OPTIONS = [
+  { id: 'off', label: 'No click' },
+  { id: 'downbeat', label: 'Downbeat' },
+  { id: 'beat', label: 'Beats' },
+  { id: 'eighth', label: 'Eighths' },
 ]
 const CUSTOM_CHORD_QUALITY_OPTIONS = [
   'maj',
@@ -256,6 +266,10 @@ function getProgressionTotalTicks(barCount) {
   return barCount * PROGRESSION_TICKS_PER_BAR
 }
 
+function getProgressionTickDuration(tempo) {
+  return 60 / tempo / (PROGRESSION_TICKS_PER_BAR / BEATS_PER_BAR)
+}
+
 function getEventEndTick(event) {
   return event.startTick + event.durationTicks
 }
@@ -336,6 +350,37 @@ function getDurationLabel(ticks) {
   return ticks % PROGRESSION_TICKS_PER_BAR === 0
     ? `${ticks / PROGRESSION_TICKS_PER_BAR} bars`
     : `${ticks}/8 bar`
+}
+
+function getClampedTempo(value) {
+  const nextValue = Number(value)
+
+  if (!Number.isFinite(nextValue)) return DEFAULT_PROGRESSION_TEMPO
+
+  return Math.max(30, Math.min(240, Math.round(nextValue)))
+}
+
+function getChordPlaybackFrequencies(chord) {
+  const quality = CHORD_QUALITIES[chord.qualityId ?? chord.quality]
+
+  if (!quality) return []
+
+  const rootMidi = 48 + chord.rootPitchClass
+  const intervals = Object.keys(quality.toneLabels)
+    .map(Number)
+    .sort((left, right) => {
+      const normalizedLeft = left === 2 ? 14 : left
+      const normalizedRight = right === 2 ? 14 : right
+
+      return normalizedLeft - normalizedRight
+    })
+
+  return intervals.map((interval) => {
+    const voicedInterval = interval === 2 ? 14 : interval
+    const midi = rootMidi + voicedInterval
+
+    return 440 * (2 ** ((midi - 69) / 12))
+  })
 }
 
 function getTypicalityLabel(value) {
@@ -1115,6 +1160,22 @@ function App() {
   const [customChordRootLabel, setCustomChordRootLabel] = useState(() => readQueryState(window.location.search).root)
   const [customChordQualityId, setCustomChordQualityId] = useState('maj')
   const [openTools, setOpenTools] = useState({ metronome: false, tuner: false })
+  const [progressionTempo, setProgressionTempo] = useState(DEFAULT_PROGRESSION_TEMPO)
+  const [progressionClickMode, setProgressionClickMode] = useState('beat')
+  const [progressionChordVolume, setProgressionChordVolume] = useState(DEFAULT_PROGRESSION_CHORD_VOLUME)
+  const [progressionClickVolume, setProgressionClickVolume] = useState(DEFAULT_PROGRESSION_CLICK_VOLUME)
+  const [isProgressionLooping, setIsProgressionLooping] = useState(false)
+  const [isProgressionPlaying, setIsProgressionPlaying] = useState(false)
+  const [playheadTick, setPlayheadTick] = useState(null)
+  const progressionPlaybackRef = useRef({
+    audioContext: null,
+    animationFrame: null,
+    loopTimeout: null,
+    scheduledNodes: [],
+    startedAt: 0,
+    tickDuration: 0,
+    totalTicks: 0,
+  })
 
   const groupedScales = groupItemsByFamily(SCALE_LIBRARY)
   const groupedFlavors = groupItemsByFamily(CHORD_FLAVOR_LIBRARY)
@@ -1252,7 +1313,211 @@ function App() {
     }
   }, [])
 
+  useEffect(() => () => {
+    const playback = progressionPlaybackRef.current
+
+    if (playback.animationFrame) {
+      cancelAnimationFrame(playback.animationFrame)
+    }
+
+    if (playback.loopTimeout) {
+      clearTimeout(playback.loopTimeout)
+    }
+
+    playback.scheduledNodes.forEach((node) => {
+      try {
+        node.stop?.()
+        node.disconnect?.()
+      } catch {
+        // Already stopped nodes can be ignored when tearing down audio.
+      }
+    })
+    playback.audioContext?.close()
+    playback.audioContext = null
+  }, [])
+
+  function clearScheduledProgressionAudio() {
+    const playback = progressionPlaybackRef.current
+
+    if (playback.animationFrame) {
+      cancelAnimationFrame(playback.animationFrame)
+    }
+
+    if (playback.loopTimeout) {
+      clearTimeout(playback.loopTimeout)
+    }
+
+    playback.scheduledNodes.forEach((node) => {
+      try {
+        node.stop?.()
+        node.disconnect?.()
+      } catch {
+        // Already stopped nodes can be ignored when cancelling playback.
+      }
+    })
+
+    playback.animationFrame = null
+    playback.loopTimeout = null
+    playback.scheduledNodes = []
+  }
+
+  function stopProgressionPlayback() {
+    clearScheduledProgressionAudio()
+    setIsProgressionPlaying(false)
+    setPlayheadTick(null)
+  }
+
+  function scheduleProgressionClick(audioContext, destination, startTime, isDownbeat, volume) {
+    const oscillator = audioContext.createOscillator()
+    const gain = audioContext.createGain()
+    const clickGain = (volume / 100) * (isDownbeat ? 0.32 : 0.2)
+
+    oscillator.type = 'square'
+    oscillator.frequency.setValueAtTime(isDownbeat ? 1380 : 980, startTime)
+    gain.gain.setValueAtTime(0.0001, startTime)
+    gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, clickGain), startTime + 0.004)
+    gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.045)
+    oscillator.connect(gain)
+    gain.connect(destination)
+    oscillator.start(startTime)
+    oscillator.stop(startTime + 0.055)
+    progressionPlaybackRef.current.scheduledNodes.push(oscillator)
+  }
+
+  function scheduleElectricPianoNote(audioContext, destination, frequency, startTime, duration, velocity) {
+    const noteGain = audioContext.createGain()
+    const endTime = Math.max(startTime + 0.08, startTime + duration)
+    const sustainStart = Math.min(startTime + 0.24, endTime - 0.04)
+    const partials = [
+      { type: 'sine', ratio: 1, gain: 0.74 },
+      { type: 'triangle', ratio: 2, gain: 0.24 },
+      { type: 'sine', ratio: 3.01, gain: 0.11 },
+    ]
+
+    noteGain.gain.setValueAtTime(0.0001, startTime)
+    noteGain.gain.linearRampToValueAtTime(velocity, startTime + 0.012)
+    noteGain.gain.exponentialRampToValueAtTime(Math.max(0.015, velocity * 0.42), sustainStart)
+    noteGain.gain.setValueAtTime(Math.max(0.012, velocity * 0.34), Math.max(sustainStart, endTime - 0.1))
+    noteGain.gain.exponentialRampToValueAtTime(0.0001, endTime)
+    noteGain.connect(destination)
+
+    partials.forEach((partial) => {
+      const oscillator = audioContext.createOscillator()
+      const partialGain = audioContext.createGain()
+
+      oscillator.type = partial.type
+      oscillator.frequency.setValueAtTime(frequency * partial.ratio, startTime)
+      partialGain.gain.setValueAtTime(partial.gain, startTime)
+      oscillator.connect(partialGain)
+      partialGain.connect(noteGain)
+      oscillator.start(startTime)
+      oscillator.stop(endTime + 0.02)
+      progressionPlaybackRef.current.scheduledNodes.push(oscillator)
+    })
+  }
+
+  function scheduleProgressionChord(audioContext, destination, chord, startTime, duration, volume) {
+    const frequencies = getChordPlaybackFrequencies(chord)
+    const noteVelocity = (volume / 100) * Math.min(0.22, 0.6 / Math.max(1, frequencies.length))
+
+    frequencies.forEach((frequency) => {
+      scheduleElectricPianoNote(audioContext, destination, frequency, startTime, duration, noteVelocity)
+    })
+  }
+
+  function animateProgressionPlayback(audioContext, startedAt, tickDuration, totalTicks) {
+    const elapsed = audioContext.currentTime - startedAt
+    const nextTick = Math.max(0, Math.min(totalTicks, Math.floor(elapsed / tickDuration)))
+
+    setPlayheadTick(nextTick >= totalTicks ? null : nextTick)
+
+    if (nextTick < totalTicks) {
+      progressionPlaybackRef.current.animationFrame = requestAnimationFrame(() => {
+        animateProgressionPlayback(audioContext, startedAt, tickDuration, totalTicks)
+      })
+    }
+  }
+
+  async function startProgressionPlayback() {
+    if (sortedProgressionEvents.length < 1) return
+
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+
+    if (!AudioContextClass) return
+
+    clearScheduledProgressionAudio()
+
+    const audioContext = progressionPlaybackRef.current.audioContext ?? new AudioContextClass()
+    const masterGain = audioContext.createGain()
+    const tickDuration = getProgressionTickDuration(progressionTempo)
+    const startedAt = audioContext.currentTime + 0.08
+    const totalDuration = totalProgressionTicks * tickDuration
+    const chordById = Object.fromEntries(composeChordPalette.map((chord) => [chord.id, chord]))
+
+    progressionPlaybackRef.current.audioContext = audioContext
+    progressionPlaybackRef.current.startedAt = startedAt
+    progressionPlaybackRef.current.tickDuration = tickDuration
+    progressionPlaybackRef.current.totalTicks = totalProgressionTicks
+
+    masterGain.gain.setValueAtTime(0.82, startedAt)
+    masterGain.connect(audioContext.destination)
+    progressionPlaybackRef.current.scheduledNodes.push(masterGain)
+
+    await audioContext.resume()
+
+    sortedProgressionEvents.forEach((event) => {
+      const chord = chordById[event.chordId]
+
+      if (!chord) return
+
+      scheduleProgressionChord(
+        audioContext,
+        masterGain,
+        chord,
+        startedAt + event.startTick * tickDuration,
+        event.durationTicks * tickDuration,
+        progressionChordVolume,
+      )
+    })
+
+    if (progressionClickMode !== 'off') {
+      for (let tick = 0; tick < totalProgressionTicks; tick += 1) {
+        const isDownbeat = tick % PROGRESSION_TICKS_PER_BAR === 0
+        const isBeat = tick % (PROGRESSION_TICKS_PER_BAR / BEATS_PER_BAR) === 0
+        const shouldClick = progressionClickMode === 'eighth'
+          || (progressionClickMode === 'beat' && isBeat)
+          || (progressionClickMode === 'downbeat' && isDownbeat)
+
+        if (shouldClick) {
+          scheduleProgressionClick(
+            audioContext,
+            masterGain,
+            startedAt + tick * tickDuration,
+            isDownbeat,
+            progressionClickVolume,
+          )
+        }
+      }
+    }
+
+    setIsProgressionPlaying(true)
+    setPlayheadTick(0)
+    animateProgressionPlayback(audioContext, startedAt, tickDuration, totalProgressionTicks)
+
+    progressionPlaybackRef.current.loopTimeout = window.setTimeout(() => {
+      clearScheduledProgressionAudio()
+
+      if (isProgressionLooping) {
+        startProgressionPlayback()
+      } else {
+        setIsProgressionPlaying(false)
+        setPlayheadTick(null)
+      }
+    }, (totalDuration + 0.18) * 1000)
+  }
+
   function clearProgression() {
+    stopProgressionPlayback()
     setProgressionEvents([])
     setSelectedProgressionEventId(null)
     setProgressionPreview(null)
@@ -2168,6 +2433,96 @@ function App() {
                 <strong>{getTypicalityLabel(progressionTypicality)}</strong>
               </label>
 
+              <div className="compose-transport" aria-label="Progression playback controls">
+                <button
+                  className="compose-transport-button"
+                  type="button"
+                  onClick={() => {
+                    if (isProgressionPlaying) {
+                      stopProgressionPlayback()
+                    } else {
+                      startProgressionPlayback()
+                    }
+                  }}
+                  disabled={sortedProgressionEvents.length < 1}
+                  aria-label={isProgressionPlaying ? 'Stop progression playback' : 'Play progression'}
+                  title={isProgressionPlaying ? 'Stop progression playback' : 'Play progression'}
+                >
+                  {isProgressionPlaying ? <Pause size={18} /> : <Play size={18} />}
+                </button>
+                <button
+                  className="compose-transport-button"
+                  type="button"
+                  onClick={stopProgressionPlayback}
+                  disabled={!isProgressionPlaying}
+                  aria-label="Stop progression"
+                  title="Stop progression"
+                >
+                  <Square size={17} />
+                </button>
+                <label className="inline-select compose-tempo-field">
+                  <span>Tempo</span>
+                  <input
+                    type="number"
+                    min="30"
+                    max="240"
+                    value={progressionTempo}
+                    onChange={(event) => {
+                      stopProgressionPlayback()
+                      setProgressionTempo(getClampedTempo(event.target.value))
+                    }}
+                  />
+                </label>
+                <label className="inline-select">
+                  <span>Click</span>
+                  <select
+                    value={progressionClickMode}
+                    onChange={(event) => {
+                      stopProgressionPlayback()
+                      setProgressionClickMode(event.target.value)
+                    }}
+                  >
+                    {PROGRESSION_CLICK_OPTIONS.map((option) => (
+                      <option key={option.id} value={option.id}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="compose-volume-control">
+                  <span>Chords</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={progressionChordVolume}
+                    onChange={(event) => {
+                      setProgressionChordVolume(Number(event.target.value))
+                    }}
+                  />
+                </label>
+                <label className="compose-volume-control">
+                  <span>Click</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={progressionClickVolume}
+                    onChange={(event) => {
+                      setProgressionClickVolume(Number(event.target.value))
+                    }}
+                  />
+                </label>
+                <button
+                  className={`toggle-button${isProgressionLooping ? ' is-active' : ''}`}
+                  type="button"
+                  aria-pressed={isProgressionLooping}
+                  onClick={() => setIsProgressionLooping((current) => !current)}
+                >
+                  Loop
+                </button>
+              </div>
+
                 <div className="button-row progression-actions">
                   <button
                     type="button"
@@ -2212,6 +2567,9 @@ function App() {
                   && progressionPreview.startTick + progressionPreview.durationTicks > barStartTick
                   ? progressionPreview
                   : null
+                const playheadInBar = playheadTick !== null && playheadTick >= barStartTick && playheadTick < barEndTick
+                  ? playheadTick
+                  : null
 
                 return (
                   <div className="progression-bar" key={`bar-${barIndex + 1}`}>
@@ -2247,6 +2605,15 @@ function App() {
                           ></button>
                         )
                       })}
+
+                      {playheadInBar !== null ? (
+                        <div
+                          className="progression-playhead"
+                          style={{
+                            gridColumn: `${playheadInBar - barStartTick + 1} / ${playheadInBar - barStartTick + 2}`,
+                          }}
+                        ></div>
+                      ) : null}
 
                       {previewInBar && previewChord ? (() => {
                         const previewStartTick = Math.max(previewInBar.startTick, barStartTick)

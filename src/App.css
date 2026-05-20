@@ -2081,6 +2081,49 @@
   margin-bottom: 12px;
 }
 
+.compose-transport {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.14);
+  background: rgba(248, 252, 247, 0.76);
+}
+
+.compose-transport-button {
+  width: 40px;
+  min-height: 40px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+}
+
+.compose-tempo-field input {
+  width: 74px;
+}
+
+.compose-volume-control {
+  width: 118px;
+  display: grid;
+  gap: 5px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.compose-volume-control input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.toggle-button.is-active {
+  background: var(--accent);
+  color: #fff8ee;
+  border-color: rgba(47, 97, 70, 0.28);
+}
+
 .typicality-control {
   flex: 1 1 260px;
   min-width: 220px;
@@ -2211,6 +2254,25 @@
   box-shadow: 0 8px 18px rgba(44, 77, 56, 0.16);
   cursor: pointer;
   text-align: left;
+}
+
+.progression-playhead {
+  grid-row: 1;
+  position: relative;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.progression-playhead::before {
+  content: "";
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  left: 0;
+  width: 3px;
+  border-radius: 999px;
+  background: #243026;
+  box-shadow: 0 0 0 3px rgba(238, 214, 74, 0.42);
 }
 
 .progression-event-copy {

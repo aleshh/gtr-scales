@@ -329,7 +329,7 @@ export function buildArrangement(rootPitchClass, scale, complexityId) {
 
       const insideChord = chordFitsScale(scaleIntervals, chord.interval, quality)
       const chordRootPitchClass = (rootPitchClass + chord.interval) % 12
-      const voicings = generateVoicings(chordRootPitchClass, quality, complexity.playability)
+      const voicings = generateVoicings(chordRootPitchClass, quality)
 
       return {
         ...chord,

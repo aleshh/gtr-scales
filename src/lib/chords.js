@@ -15,12 +15,6 @@ const LOW_TO_HIGH_STRINGS = [
 
 const HIGH_TO_LOW_STRINGS = [...LOW_TO_HIGH_STRINGS].reverse()
 const COMPLEXITY_ORDER = ['triads', 'sevenths', 'extended', 'advanced']
-const PLAYABILITY_LIMITS = {
-  easy: { maxStart: 5, maxStretch: 3, maxMuted: 2, allowCompactOnly: false, preferJazz: false, limit: 3 },
-  intermediate: { maxStart: 8, maxStretch: 4, maxMuted: 3, allowCompactOnly: false, preferJazz: false, limit: 3 },
-  full: { maxStart: 12, maxStretch: 5, maxMuted: 5, allowCompactOnly: false, preferJazz: false, limit: 4 },
-  jazz: { maxStart: 12, maxStretch: 4, maxMuted: 5, allowCompactOnly: true, preferJazz: true, limit: 3 },
-}
 
 function getRootLabelForPitchClass(pitchClass) {
   return ROOT_OPTIONS.find((option) => option.pitchClass === pitchClass)?.label ?? 'C'
@@ -100,43 +94,38 @@ function compareFretPositions(leftFrets, rightFrets) {
   return leftFrets.join(',').localeCompare(rightFrets.join(','))
 }
 
-function isAllowedByPlayability(template, frets, playabilityId) {
-  const settings = PLAYABILITY_LIMITS[playabilityId]
+function isPlayableTemplateVoicing(frets) {
   const { min, max } = getFrettedRange(frets)
-  const stretch = max - min
-  const mutedCount = frets.filter((fret) => fret < 0).length
-  const isCompact = template.tags.includes('compact') || frets.filter((fret) => fret >= 0).length <= 4
-  const exceedsSpan = max > 12 || (min > 0 && max - min > 3)
-
-  if (exceedsSpan || stretch > settings.maxStretch || mutedCount > settings.maxMuted) {
-    return false
-  }
-
-  if (min > settings.maxStart) {
-    return false
-  }
-
-  if (settings.allowCompactOnly && !isCompact) {
-    return false
-  }
-
-  if (!settings.preferJazz && template.tags.includes('jazz') && playabilityId !== 'full') {
-    return false
-  }
-
-  return true
+  return min === 0 || max - min <= 5
 }
 
-function getVoicingRank(template, frets, playabilityId) {
+function getVoicingRank(template, frets) {
   const { min, max } = getFrettedRange(frets)
   const stretch = max - min
   const mutedCount = frets.filter((fret) => fret < 0).length
+  const soundingCount = frets.filter((fret) => fret >= 0).length
   const hasOpenStrings = frets.some((fret) => fret === 0)
   const compactBonus = template.tags.includes('compact') ? -6 : 0
   const openBonus = hasOpenStrings ? -4 : 0
-  const jazzBonus = playabilityId === 'jazz' && template.tags.includes('jazz') ? -12 : 0
+  const fullnessBonus = -soundingCount * 2
 
-  return template.priority * 10 + min * 2 + stretch * 4 + mutedCount * 3 + compactBonus + openBonus + jazzBonus
+  return template.priority * 10 + min * 2 + stretch * 4 + mutedCount * 3 + compactBonus + openBonus + fullnessBonus
+}
+
+function isStrictSubsetVoicing(leftFrets, rightFrets) {
+  let hasExtraSoundingString = false
+
+  for (let index = 0; index < leftFrets.length; index += 1) {
+    if (leftFrets[index] >= 0 && leftFrets[index] !== rightFrets[index]) {
+      return false
+    }
+
+    if (leftFrets[index] < 0 && rightFrets[index] >= 0) {
+      hasExtraSoundingString = true
+    }
+  }
+
+  return hasExtraSoundingString
 }
 
 function getVisibleFretsForVoicing(frets) {
@@ -216,9 +205,8 @@ function buildVoicing(rootPitchClass, qualityId, template, frets) {
   }
 }
 
-export function generateVoicings(rootPitchClass, qualityId, playabilityId) {
+export function generateVoicings(rootPitchClass, qualityId) {
   const templates = CHORD_VOICING_TEMPLATES.filter((template) => template.quality === qualityId)
-  const settings = PLAYABILITY_LIMITS[playabilityId]
   const candidates = []
 
   templates.forEach((template) => {
@@ -227,21 +215,20 @@ export function generateVoicings(rootPitchClass, qualityId, playabilityId) {
     rootFrets.forEach((rootFret) => {
       const frets = buildAbsoluteFrets(template, rootFret)
 
-      if (!isAllowedByPlayability(template, frets, playabilityId)) {
+      if (!isPlayableTemplateVoicing(frets)) {
         return
       }
 
       candidates.push({
         template,
         frets,
-        rank: getVoicingRank(template, frets, playabilityId),
+        rank: getVoicingRank(template, frets),
       })
     })
   })
 
   const seen = new Set()
-
-  return candidates
+  const uniqueCandidates = candidates
     .sort((left, right) => left.rank - right.rank)
     .filter((candidate) => {
       const signature = candidate.frets.join(',')
@@ -253,12 +240,20 @@ export function generateVoicings(rootPitchClass, qualityId, playabilityId) {
       seen.add(signature)
       return true
     })
-    .slice(0, settings.limit)
+
+  return uniqueCandidates
+    .filter((candidate, index) => !uniqueCandidates.some((other, otherIndex) => {
+      if (index === otherIndex) {
+        return false
+      }
+
+      return isStrictSubsetVoicing(candidate.frets, other.frets)
+    }))
     .sort((left, right) => compareFretPositions(left.frets, right.frets))
     .map((candidate) => buildVoicing(rootPitchClass, qualityId, candidate.template, candidate.frets))
 }
 
-export function buildChordGroups(rootPitchClass, flavor, complexityId, playabilityId) {
+export function buildChordGroups(rootPitchClass, flavor, complexityId) {
   return flavor.groups.map((group) => ({
     ...group,
     rows: group.chords.map((chord) => {
@@ -275,7 +270,7 @@ export function buildChordGroups(rootPitchClass, flavor, complexityId, playabili
         summary: chord.summary,
         formula: quality.formula,
         tags: chord.tags,
-        voicings: generateVoicings(chordRootPitchClass, qualityId, playabilityId),
+        voicings: generateVoicings(chordRootPitchClass, qualityId),
       }
     }),
   }))

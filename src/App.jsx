@@ -1157,7 +1157,7 @@ function App() {
   const positionWindows = buildPositionWindows(rows, root.pitchClass, currentMaxFret, 5, currentStringSet)
   const scaleFormula = getScaleFormula(scale)
   const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
-  const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id, 'full')
+  const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id)
   const composeChordPalette = [...arrangement.rows, ...customChords]
   const activeChordPalette = mode === 'compose' ? composeChordPalette : arrangement.rows
   const selectedArrangementChord = activeChordPalette.find((row) => row.id === selectedArrangementChordId) ?? activeChordPalette[0]
@@ -2052,10 +2052,10 @@ function App() {
                           <article className="chart-card is-compact empty-voicing-card">
                             <div className="chart-heading">
                               <div>
-                                <h3>No clean grips</h3>
+                                <h3>No guitar voicings yet</h3>
                                 <p>
-                                  This filter combination is intentionally strict. Try a looser
-                                  playability setting for more options.
+                                  This chord does not have a matching guitar shape in the current
+                                  voicing library.
                                 </p>
                               </div>
                             </div>

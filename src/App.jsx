@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { Gauge, Metronome, Music4, Pause, Play, Square, X } from 'lucide-react'
+import { Gauge, Metronome, Music4, Pause, Play, Plus, Repeat, Shuffle, Square, Trash2, X } from 'lucide-react'
 import './App.css'
 import {
   ROOT_OPTIONS,
@@ -1256,6 +1256,7 @@ function App() {
   const [isProgressionLooping, setIsProgressionLooping] = useState(false)
   const [isProgressionPlaying, setIsProgressionPlaying] = useState(false)
   const [playheadTick, setPlayheadTick] = useState(null)
+  const controlPanelRef = useRef(null)
   const progressionPlaybackRef = useRef({
     audioContext: null,
     animationFrame: null,
@@ -1341,6 +1342,27 @@ function App() {
     nextKeys.forEach((key) => touchedQueryParamsRef.current.add(key))
     action()
   }
+
+  useEffect(() => {
+    const controlPanel = controlPanelRef.current
+
+    if (!controlPanel) return undefined
+
+    function updateControlPanelHeight() {
+      document.documentElement.style.setProperty('--control-panel-height', `${controlPanel.offsetHeight}px`)
+    }
+
+    updateControlPanelHeight()
+
+    const observer = new ResizeObserver(updateControlPanelHeight)
+    observer.observe(controlPanel)
+    window.addEventListener('resize', updateControlPanelHeight)
+
+    return () => {
+      observer.disconnect()
+      window.removeEventListener('resize', updateControlPanelHeight)
+    }
+  }, [])
 
   useEffect(() => {
     const touchedQueryParams = touchedQueryParamsRef.current
@@ -1813,6 +1835,11 @@ function App() {
   function changeProgressionBars(nextBarCount) {
     const nextBars = clampProgressionBars(nextBarCount)
     const nextTotalTicks = getProgressionTotalTicks(nextBars)
+    const removesChords = progressionEvents.some((event) => event.startTick >= nextTotalTicks || getEventEndTick(event) > nextTotalTicks)
+
+    if (nextBars < progressionBars && removesChords && !window.confirm('Shortening the progression will remove or trim chords beyond the new length. Continue?')) {
+      return
+    }
 
     setProgressionBars(nextBars)
     setProgressionEvents((current) => current
@@ -2138,7 +2165,11 @@ function App() {
     const paletteRows = allowCustomChords ? composeChordPalette : arrangement.rows
 
     return (
-      <div className="arrangement-tabs" role="tablist" aria-label="Chord palette">
+      <div
+        className={`arrangement-tabs${allowCustomChords ? ' is-compose-palette' : ''}`}
+        role="tablist"
+        aria-label="Chord palette"
+      >
         {paletteRows.map((row, index) => (
           <div className="palette-chord-item" key={row.id}>
             <button
@@ -2181,7 +2212,7 @@ function App() {
                 aria-label={`Remove ${row.name} from palette`}
                 onClick={() => deleteCustomChord(row.id)}
               >
-                x
+                <X size={12} strokeWidth={2.6} aria-hidden="true" />
               </button>
             ) : null}
           </div>
@@ -2189,6 +2220,7 @@ function App() {
 
         {allowCustomChords ? (
           <div className="palette-add-chord">
+            <span className="palette-add-label">Add chord</span>
             <button
               className="palette-add-button"
               type="button"
@@ -2196,7 +2228,7 @@ function App() {
               title="Add chord"
               onClick={addCustomChord}
             >
-              <span>+</span>
+              <Plus size={20} strokeWidth={2.6} aria-hidden="true" />
             </button>
             <div className="palette-add-fields">
               <select
@@ -2250,7 +2282,7 @@ function App() {
         </FloatingToolWindow>
       ) : null}
 
-      <header className="control-panel">
+      <header className="control-panel" ref={controlPanelRef}>
         <div className="control-toolbar">
           <div className="nav-brand" aria-label="IntervalKit">
             <Music4 size={20} strokeWidth={2.3} aria-hidden="true" />
@@ -2716,172 +2748,178 @@ function App() {
           {mode === 'compose' ? (
           <section className="progression-builder">
             <div className="compose-sticky-tools">
-              {renderChordPalette({ allowCustomChords: true })}
-
-              <div className="progression-controls">
-              <label className="inline-select">
-                <span>Length</span>
-                <input
-                  type="number"
-                  min="1"
-                  max={MAX_PROGRESSION_BARS}
-                  value={progressionBars}
-                  onChange={(event) => changeProgressionBars(Number(event.target.value))}
-                />
-              </label>
-
-              <label className="inline-select">
-                <span>New chord length</span>
-                <select
-                  value={defaultProgressionDurationTicks}
-                  onChange={(event) => setDefaultProgressionDurationTicks(Number(event.target.value))}
-                >
-                  {PROGRESSION_DURATION_OPTIONS.map((option) => (
-                    <option key={option.ticks} value={option.ticks}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="typicality-control">
-                <span>Typicality</span>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={progressionTypicality}
-                  onChange={(event) => setProgressionTypicality(Number(event.target.value))}
-                />
-                <strong>{getTypicalityLabel(progressionTypicality)}</strong>
-              </label>
-
-              <div className="compose-transport" aria-label="Progression playback controls">
-                <button
-                  className="compose-transport-button"
-                  type="button"
-                  onClick={() => {
-                    if (isProgressionPlaying) {
-                      stopProgressionPlayback()
-                    } else {
-                      startProgressionPlayback()
-                    }
-                  }}
-                  disabled={sortedProgressionEvents.length < 1}
-                  aria-label={isProgressionPlaying ? 'Stop progression playback' : 'Play progression'}
-                  title={isProgressionPlaying ? 'Stop progression playback' : 'Play progression'}
-                >
-                  {isProgressionPlaying ? <Pause size={18} /> : <Play size={18} />}
-                </button>
-                <button
-                  className="compose-transport-button"
-                  type="button"
-                  onClick={stopProgressionPlayback}
-                  disabled={!isProgressionPlaying}
-                  aria-label="Stop progression"
-                  title="Stop progression"
-                >
-                  <Square size={17} />
-                </button>
-                <label className="inline-select compose-tempo-field">
-                  <span>Tempo</span>
-                  <input
-                    type="number"
-                    min="30"
-                    max="240"
-                    value={progressionTempo}
-                    onChange={(event) => {
-                      stopProgressionPlayback()
-                      setProgressionTempo(getClampedTempo(event.target.value))
+              <div className="compose-playback-panel" aria-label="Progression playback controls">
+                <div className="compose-transport">
+                  <button
+                    className="compose-transport-button"
+                    type="button"
+                    onClick={() => {
+                      if (isProgressionPlaying) {
+                        stopProgressionPlayback()
+                      } else {
+                        startProgressionPlayback()
+                      }
                     }}
-                  />
-                </label>
-                <label className="inline-select">
-                  <span>Click</span>
-                  <select
-                    value={progressionClickMode}
-                    onChange={(event) => {
-                      stopProgressionPlayback()
-                      setProgressionClickMode(event.target.value)
-                    }}
+                    disabled={sortedProgressionEvents.length < 1}
+                    aria-label={isProgressionPlaying ? 'Stop progression playback' : 'Play progression'}
+                    title={isProgressionPlaying ? 'Stop progression playback' : 'Play progression'}
                   >
-                    {PROGRESSION_CLICK_OPTIONS.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="inline-select compose-sound-field">
-                  <span>Sound</span>
-                  <select
-                    value={playbackVoice}
-                    onChange={(event) => {
-                      stopProgressionPlayback()
-                      setPlaybackVoice(event.target.value)
-                    }}
+                    {isProgressionPlaying ? <Pause size={18} /> : <Play size={18} />}
+                  </button>
+                  <button
+                    className="compose-transport-button"
+                    type="button"
+                    onClick={stopProgressionPlayback}
+                    disabled={!isProgressionPlaying}
+                    aria-label="Stop progression"
+                    title="Stop progression"
                   >
-                    {PLAYBACK_VOICE_OPTIONS.map((option) => (
-                      <option key={option.id} value={option.id}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="compose-volume-control">
-                  <span>Chords</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={progressionChordVolume}
-                    onChange={(event) => {
-                      setProgressionChordVolume(Number(event.target.value))
-                    }}
-                  />
-                </label>
-                <label className="compose-volume-control">
-                  <span>Click</span>
-                  <input
-                    type="range"
-                    min="0"
-                    max="100"
-                    value={progressionClickVolume}
-                    onChange={(event) => {
-                      setProgressionClickVolume(Number(event.target.value))
-                    }}
-                  />
-                </label>
-                <button
-                  className={`toggle-button${isProgressionLooping ? ' is-active' : ''}`}
-                  type="button"
-                  aria-pressed={isProgressionLooping}
-                  onClick={() => setIsProgressionLooping((current) => !current)}
-                >
-                  Loop
-                </button>
+                    <Square size={17} />
+                  </button>
+                  <label className="inline-select compose-length-field">
+                    <span>Length</span>
+                    <input
+                      type="number"
+                      min="1"
+                      max={MAX_PROGRESSION_BARS}
+                      value={progressionBars}
+                      onChange={(event) => changeProgressionBars(Number(event.target.value))}
+                    />
+                  </label>
+                  <label className="inline-select compose-tempo-field">
+                    <span>Tempo</span>
+                    <input
+                      type="number"
+                      min="30"
+                      max="240"
+                      value={progressionTempo}
+                      onChange={(event) => {
+                        stopProgressionPlayback()
+                        setProgressionTempo(getClampedTempo(event.target.value))
+                      }}
+                    />
+                  </label>
+                  <label className="inline-select">
+                    <span>Click</span>
+                    <select
+                      value={progressionClickMode}
+                      onChange={(event) => {
+                        stopProgressionPlayback()
+                        setProgressionClickMode(event.target.value)
+                      }}
+                    >
+                      {PROGRESSION_CLICK_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="inline-select compose-sound-field">
+                    <span>Sound</span>
+                    <select
+                      value={playbackVoice}
+                      onChange={(event) => {
+                        stopProgressionPlayback()
+                        setPlaybackVoice(event.target.value)
+                      }}
+                    >
+                      {PLAYBACK_VOICE_OPTIONS.map((option) => (
+                        <option key={option.id} value={option.id}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="compose-volume-control">
+                    <span>Chords</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={progressionChordVolume}
+                      onChange={(event) => {
+                        setProgressionChordVolume(Number(event.target.value))
+                      }}
+                    />
+                  </label>
+                  <label className="compose-volume-control">
+                    <span>Click</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={progressionClickVolume}
+                      onChange={(event) => {
+                        setProgressionClickVolume(Number(event.target.value))
+                      }}
+                    />
+                  </label>
+                  <button
+                    className={`compose-action-button toggle-button${isProgressionLooping ? ' is-active' : ''}`}
+                    type="button"
+                    aria-pressed={isProgressionLooping}
+                    onClick={() => setIsProgressionLooping((current) => !current)}
+                  >
+                    <Repeat size={16} aria-hidden="true" />
+                    Loop
+                  </button>
+                </div>
               </div>
 
-                <div className="button-row progression-actions">
+              <div className="compose-chord-panel">
+                {renderChordPalette({ allowCustomChords: true })}
+
+                <div className="compose-add-section">
                   <button
+                    className="compose-action-button primary-action-button"
                     type="button"
                     onClick={() => addChordToProgression(selectedArrangementChord.id)}
                     disabled={!selectedArrangementChord || emptyProgressionTicks < 1}
                   >
+                    <Plus size={17} aria-hidden="true" />
                     Add selected chord
                   </button>
+                  <label className="inline-select">
+                    <span>New chord length</span>
+                    <select
+                      value={defaultProgressionDurationTicks}
+                      onChange={(event) => setDefaultProgressionDurationTicks(Number(event.target.value))}
+                    >
+                      {PROGRESSION_DURATION_OPTIONS.map((option) => (
+                        <option key={option.ticks} value={option.ticks}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="typicality-control">
+                    <span>Typicality</span>
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      value={progressionTypicality}
+                      onChange={(event) => setProgressionTypicality(Number(event.target.value))}
+                    />
+                    <strong>{getTypicalityLabel(progressionTypicality)}</strong>
+                  </label>
                   <button
+                    className="compose-action-button"
                     type="button"
                     onClick={fillRemainingProgressionSpace}
                     disabled={emptyProgressionTicks < 1}
                   >
+                    <Shuffle size={16} aria-hidden="true" />
                     Random fill empty space
                   </button>
                   <button
+                    className="compose-action-button"
                     type="button"
                     onClick={clearProgression}
                     disabled={progressionEvents.length < 1}
                   >
+                    <Trash2 size={16} aria-hidden="true" />
                     Clear
                   </button>
                 </div>
@@ -3014,7 +3052,7 @@ function App() {
                                   deleteProgressionEvent(event.id)
                                 }}
                               >
-                                x
+                                <X size={12} strokeWidth={2.6} aria-hidden="true" />
                               </button>
                             ) : null}
 

@@ -1,3 +1,7 @@
+:root {
+  --control-panel-height: 74px;
+}
+
 .app-shell {
   width: min(1320px, 100%);
   margin: 0 auto;
@@ -1935,6 +1939,12 @@
   border-bottom: 1px solid rgba(55, 90, 71, 0.14);
 }
 
+.arrangement-tabs.is-compose-palette {
+  gap: 6px;
+  padding: 0;
+  border-bottom: 0;
+}
+
 .palette-chord-item {
   position: relative;
   flex: 0 0 144px;
@@ -2013,6 +2023,41 @@
   outline-offset: 2px;
 }
 
+.is-compose-palette .palette-chord-item {
+  flex-basis: 116px;
+  min-width: 116px;
+}
+
+.is-compose-palette .palette-chord-button {
+  min-width: 116px;
+  min-height: 52px;
+  padding: 8px 10px;
+  column-gap: 8px;
+}
+
+.is-compose-palette .palette-chord-button span {
+  width: 22px;
+  height: 22px;
+  font-size: 0.82rem;
+}
+
+.is-compose-palette .palette-chord-button strong {
+  font-size: 1rem;
+}
+
+.is-compose-palette .palette-chord-button small {
+  font-size: 0.75rem;
+}
+
+.is-compose-palette .palette-play-button {
+  right: 6px;
+  bottom: 6px;
+  width: 21px;
+  height: 21px;
+  min-width: 21px;
+  min-height: 21px;
+}
+
 .palette-remove-button {
   position: absolute;
   top: -6px;
@@ -2076,20 +2121,56 @@
   gap: 8px;
 }
 
+.palette-add-label {
+  display: none;
+}
+
+.is-compose-palette .palette-add-chord {
+  flex-basis: 218px;
+  min-width: 218px;
+  margin-left: auto;
+  grid-template-columns: 52px 1fr;
+  grid-template-rows: auto 1fr;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.14);
+  background: rgba(248, 252, 247, 0.68);
+}
+
+.is-compose-palette .palette-add-label {
+  grid-column: 1 / -1;
+  display: block;
+  color: var(--muted);
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
 .palette-add-button {
   min-width: 64px;
   width: 64px;
   padding: 10px;
+  display: inline-grid;
+  grid-template-columns: none;
   place-items: center;
   text-align: center;
 }
 
-.palette-add-button span {
-  grid-row: auto;
-  width: 34px;
-  height: 34px;
-  font-size: 1.4rem;
-  line-height: 1;
+.is-compose-palette .palette-add-button {
+  min-width: 52px;
+  width: 52px;
+  min-height: 58px;
+  padding: 6px;
+}
+
+.palette-add-button svg,
+.palette-remove-button svg,
+.progression-remove-button svg,
+.compose-action-button svg {
+  display: block;
+  flex: 0 0 auto;
 }
 
 .palette-add-fields {
@@ -2130,16 +2211,33 @@
 
 .compose-sticky-tools {
   position: sticky;
-  top: 0;
+  top: var(--control-panel-height, 74px);
   z-index: 10;
   display: grid;
-  gap: 12px;
+  gap: 10px;
   margin: -18px -18px 14px;
   padding: 18px 18px 14px;
   border-radius: 8px 8px 0 0;
   border-bottom: 1px solid rgba(55, 90, 71, 0.14);
   background: rgba(241, 249, 239, 0.96);
   backdrop-filter: blur(10px);
+}
+
+.compose-playback-panel {
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.18);
+  background: rgba(255, 248, 238, 0.84);
+  box-shadow: 0 8px 20px rgba(44, 77, 56, 0.08);
+}
+
+.compose-chord-panel {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.14);
+  background: rgba(248, 252, 247, 0.78);
 }
 
 .compose-primary-scale {
@@ -2178,10 +2276,10 @@
   align-items: end;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 8px;
-  border-radius: 8px;
-  border: 1px solid rgba(55, 90, 71, 0.14);
-  background: rgba(248, 252, 247, 0.76);
+  padding: 0;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
 }
 
 .compose-transport-button {
@@ -2194,6 +2292,10 @@
 
 .compose-tempo-field input {
   width: 74px;
+}
+
+.compose-length-field input {
+  width: 76px;
 }
 
 .compose-sound-field select {
@@ -2221,11 +2323,11 @@
 }
 
 .typicality-control {
-  flex: 1 1 260px;
-  min-width: 220px;
+  flex: 0 1 190px;
+  min-width: 168px;
   display: grid;
   grid-template-columns: 1fr auto;
-  gap: 8px 12px;
+  gap: 6px 10px;
   color: var(--muted);
   font-weight: 700;
 }
@@ -2246,6 +2348,59 @@
 
 .progression-actions {
   margin-left: auto;
+}
+
+.compose-add-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(55, 90, 71, 0.12);
+}
+
+.compose-action-button {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 13px;
+  border-radius: 8px;
+  border: 1px solid rgba(55, 90, 71, 0.16);
+  background: rgba(248, 252, 247, 0.94);
+  color: var(--accent-deep);
+  font: inherit;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.compose-action-button:focus-visible {
+  outline: 2px solid rgba(77, 139, 103, 0.66);
+  outline-offset: 2px;
+}
+
+.compose-action-button:disabled {
+  opacity: 0.48;
+  cursor: not-allowed;
+}
+
+.compose-action-button.toggle-button.is-active {
+  background: var(--accent);
+  color: #fff8ee;
+  border-color: rgba(47, 97, 70, 0.28);
+}
+
+.primary-action-button {
+  border-color: rgba(47, 97, 70, 0.3);
+  background: var(--accent);
+  color: #fff8ee;
+  box-shadow: 0 8px 18px rgba(44, 77, 56, 0.16);
+}
+
+.primary-action-button:hover:not(:disabled) {
+  background: var(--accent-deep);
 }
 
 .inline-select input {
@@ -2742,6 +2897,7 @@
   }
 
   .progression-controls,
+  .compose-add-section,
   .progression-edit-controls {
     display: grid;
     align-items: stretch;

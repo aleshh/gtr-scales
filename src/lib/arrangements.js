@@ -38,9 +38,10 @@ const DEGREE_NUMERALS = {
   majorFlat5: ['Ib5', 'IIb5', 'IIIb5', 'IVb5', 'Vb5', 'VIb5', 'VIIb5'],
   augmented: ['I+', 'II+', 'III+', 'IV+', 'V+', 'VI+', 'VII+'],
   min: ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii'],
-  dim: ['iio', 'iiio', 'ivo', 'vo', 'vio', 'viio', 'io'],
+  dim: ['io', 'iio', 'iiio', 'ivo', 'vo', 'vio', 'viio'],
 }
 
+const LOWER_DEGREE_NUMERALS = ['i', 'ii', 'iii', 'iv', 'v', 'vi', 'vii']
 const FALLBACK_NUMERALS = ['I', 'bII', 'II', 'bIII', 'III', 'IV', '#IV', 'V', 'bVI', 'VI', 'bVII', 'VII']
 const INSIDE_CHORD_PREFERENCES = {
   altered: ['dominant7Sharp5', 'dominant7Flat5', 'augmented', 'majorFlat5', 'dim'],
@@ -145,21 +146,22 @@ function getNumeral(rootInterval, quality, degreeIndex, triadQuality) {
   if (!quality) return FALLBACK_NUMERALS[rootInterval] ?? `${degreeIndex + 1}`
 
   const base = FALLBACK_NUMERALS[rootInterval] ?? `${degreeIndex + 1}`
+  const degreeBase = DEGREE_NUMERALS[triadQuality]?.[degreeIndex]
 
   if (quality === 'dominant7Sharp5') return `${base}7#5`
   if (quality === 'dominant7Flat5') return `${base}7b5`
   if (quality === 'minorMajor7') return `${base}mMaj7`
+  if (quality === 'diminished7') return `${LOWER_DEGREE_NUMERALS[degreeIndex] ?? base.toLowerCase()}o7`
+  if (quality === 'minor7Flat5') return `${LOWER_DEGREE_NUMERALS[degreeIndex] ?? base.toLowerCase()}ø7`
 
-  if (DEGREE_NUMERALS[triadQuality]?.[degreeIndex]) {
+  if (degreeBase) {
     return quality === triadQuality
-      ? DEGREE_NUMERALS[triadQuality][degreeIndex]
-      : `${DEGREE_NUMERALS[triadQuality][degreeIndex]}7`
+      ? degreeBase
+      : `${degreeBase}7`
   }
 
   if (quality === 'augmented') return `${base}+`
   if (quality === 'majorFlat5') return `${base}b5`
-  if (quality === 'diminished7') return `${base}o7`
-  if (quality === 'minor7Flat5') return `${base}o7`
   if (quality.endsWith('7')) return `${base}7`
 
   return base
@@ -185,6 +187,8 @@ function getDiatonicChord(scale, degreeIndex) {
 
   return {
     interval: rootInterval,
+    degreeIndex,
+    triadQuality,
     numeral: getNumeral(rootInterval, quality, degreeIndex, triadQuality),
     quality,
     summary: getDiatonicSummary(rootInterval, scale),
@@ -316,7 +320,6 @@ export function buildArrangement(rootPitchClass, scale, complexityId) {
 
   const rows = allChords
     .map((chord) => {
-      const key = `${chord.interval}-${chord.quality}-${chord.numeral}`
       const isInside = scaleIntervals.has(chord.interval)
       const priorityIndex = priority.indexOf(chord.interval)
       let quality = getQualityForComplexity(chord.quality, complexity)
@@ -330,11 +333,16 @@ export function buildArrangement(rootPitchClass, scale, complexityId) {
       const insideChord = chordFitsScale(scaleIntervals, chord.interval, quality)
       const chordRootPitchClass = (rootPitchClass + chord.interval) % 12
       const voicings = generateVoicings(chordRootPitchClass, quality)
+      const numeral = chord.tags?.includes('inside')
+        ? getNumeral(chord.interval, quality, chord.degreeIndex, chord.triadQuality)
+        : chord.numeral
+      const key = `${chord.interval}-${quality}-${numeral}`
 
       return {
         ...chord,
         id: key,
         quality,
+        numeral,
         rootPitchClass: chordRootPitchClass,
         name: getChordName(chordRootPitchClass, quality),
         formula: CHORD_QUALITIES[quality]?.formula ?? '',

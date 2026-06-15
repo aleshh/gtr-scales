@@ -15,14 +15,69 @@ const LOW_TO_HIGH_STRINGS = [
 
 const HIGH_TO_LOW_STRINGS = [...LOW_TO_HIGH_STRINGS].reverse()
 const COMPLEXITY_ORDER = ['triads', 'sevenths', 'extended', 'advanced']
+const LETTER_PITCH_CLASSES = {
+  C: 0,
+  D: 2,
+  E: 4,
+  F: 5,
+  G: 7,
+  A: 9,
+  B: 11,
+}
+const LETTERS = Object.keys(LETTER_PITCH_CLASSES)
+const ROMAN_DEGREES = {
+  I: 0,
+  II: 1,
+  III: 2,
+  IV: 3,
+  V: 4,
+  VI: 5,
+  VII: 6,
+}
 
 function getRootLabelForPitchClass(pitchClass) {
   return ROOT_OPTIONS.find((option) => option.pitchClass === pitchClass)?.label ?? 'C'
 }
 
-export function getChordName(rootPitchClass, qualityId) {
+function normalizeAlter(value) {
+  if (value > 6) return value - 12
+  if (value < -6) return value + 12
+  return value
+}
+
+function getAccidentalSuffix(alter) {
+  if (alter > 0) return '#'.repeat(alter)
+  if (alter < 0) return 'b'.repeat(Math.abs(alter))
+  return ''
+}
+
+function getDegreeIndexFromNumeral(numeral) {
+  const match = numeral.match(/[ivIV]+/)
+  return match ? ROMAN_DEGREES[match[0].toUpperCase()] : null
+}
+
+function getContextualRootLabel(rootPitchClass, tonicLabel, degreeIndex) {
+  const tonicLetterIndex = LETTERS.indexOf(tonicLabel?.[0])
+
+  if (tonicLetterIndex < 0 || !Number.isInteger(degreeIndex)) {
+    return getRootLabelForPitchClass(rootPitchClass)
+  }
+
+  const letter = LETTERS[(tonicLetterIndex + degreeIndex) % LETTERS.length]
+  const alter = normalizeAlter(rootPitchClass - LETTER_PITCH_CLASSES[letter])
+
+  return `${letter}${getAccidentalSuffix(alter)}`
+}
+
+export function getChordName(rootPitchClass, qualityId, context = {}) {
   const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.min
-  return `${getRootLabelForPitchClass(rootPitchClass)}${quality.suffix}`
+  const rootLabel = getContextualRootLabel(
+    rootPitchClass,
+    context.tonicLabel,
+    context.degreeIndex ?? getDegreeIndexFromNumeral(context.numeral ?? ''),
+  )
+
+  return `${rootLabel}${quality.suffix}`
 }
 
 export function resolveQualityId(chord, complexityId) {
@@ -255,7 +310,7 @@ export function generateVoicings(rootPitchClass, qualityId) {
     .map((candidate) => buildVoicing(rootPitchClass, qualityId, candidate.template, candidate.frets))
 }
 
-export function buildChordGroups(rootPitchClass, flavor, complexityId) {
+export function buildChordGroups(rootPitchClass, flavor, complexityId, tonicLabel = null) {
   return flavor.groups.map((group) => ({
     ...group,
     rows: group.chords.map((chord) => {
@@ -265,7 +320,10 @@ export function buildChordGroups(rootPitchClass, flavor, complexityId) {
 
       return {
         id: `${group.id}-${chord.numeral}`,
-        name: getChordName(chordRootPitchClass, qualityId),
+        name: getChordName(chordRootPitchClass, qualityId, {
+          tonicLabel,
+          numeral: chord.numeral,
+        }),
         rootPitchClass: chordRootPitchClass,
         qualityId,
         numeral: chord.numeral,

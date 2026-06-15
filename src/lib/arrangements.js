@@ -306,7 +306,7 @@ function buildSuggestions(rootPitchClass, rootScale, chord, complexityId) {
   })
 }
 
-export function buildArrangement(rootPitchClass, scale, complexityId) {
+export function buildArrangement(rootPitchClass, scale, complexityId, tonicLabel = null) {
   const complexity = ARRANGEMENT_COMPLEXITY_OPTIONS.find((item) => item.id === complexityId) ?? ARRANGEMENT_COMPLEXITY_OPTIONS[0]
   const priority = getDefaultPriority(scale)
   const scaleIntervals = new Set(scale.intervals)
@@ -344,7 +344,11 @@ export function buildArrangement(rootPitchClass, scale, complexityId) {
         quality,
         numeral,
         rootPitchClass: chordRootPitchClass,
-        name: getChordName(chordRootPitchClass, quality),
+        name: getChordName(chordRootPitchClass, quality, {
+          tonicLabel,
+          degreeIndex: chord.degreeIndex,
+          numeral,
+        }),
         formula: CHORD_QUALITIES[quality]?.formula ?? '',
         tags: [...new Set([...(chord.tags ?? []), isInside && insideChord ? 'scale tone' : 'borrowed'])],
         voicings,

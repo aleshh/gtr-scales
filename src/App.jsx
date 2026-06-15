@@ -1291,7 +1291,7 @@ function App() {
   const scale = SCALE_LIBRARY.find((item) => item.id === scaleId) ?? SCALE_LIBRARY[0]
   const flavor = CHORD_FLAVOR_LIBRARY.find((item) => item.id === flavorId) ?? CHORD_FLAVOR_LIBRARY[0]
   const complexity = CHORD_COMPLEXITY_OPTIONS.find((item) => item.id === complexityId) ?? CHORD_COMPLEXITY_OPTIONS[1]
-  const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId)
+  const arrangement = buildArrangement(root.pitchClass, scale, arrangementComplexityId, root.label)
   const harmonyChordPaletteLabel = arrangement.complexity.id === 'sevenths'
     ? '7th chords'
     : `${arrangement.complexity.label} chords`
@@ -1328,7 +1328,7 @@ function App() {
   const positionWindows = buildPositionWindows(rows, root.pitchClass, currentMaxFret, 5, currentStringSet)
   const scaleFormula = getScaleFormula(scale)
   const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
-  const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id)
+  const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id, root.label)
   const chordKeyFifths = getChordKeyFifths(root.pitchClass, flavor.id)
   const scaleKeyFifths = getScaleKeyFifths(root.pitchClass, scale.id)
   const composeChordPalette = [...arrangement.rows, ...customChords]

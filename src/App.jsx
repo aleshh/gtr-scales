@@ -621,6 +621,7 @@ function FretboardChart({
         <SheetMusicChart
           musicXml={notationMusicXml}
           embedded
+          onPlayNote={onPlayNote}
         />
       ) : null}
 
@@ -2529,6 +2530,7 @@ function App() {
                 })}
                 embedded
                 bare
+                onPlayNote={playNotePreview}
               />
             </div>
           ) : mode !== 'chords' ? (
@@ -2687,6 +2689,7 @@ function App() {
                           keyFifths: chordKeyFifths,
                         })}
                         compact
+                        onPlayNote={playNotePreview}
                       />
 
                       {instrument === 'guitar' ? (
@@ -3294,6 +3297,7 @@ function App() {
                   keyFifths: scaleKeyFifths,
                 })}
                 compact
+                onPlayNote={playNotePreview}
               />
 
               <article className="arrangement-fingerings">

@@ -678,6 +678,16 @@
   max-width: 100%;
 }
 
+.sheet-music-render .is-clickable-note {
+  cursor: pointer;
+  outline: none;
+}
+
+.sheet-music-render .is-clickable-note:hover,
+.sheet-music-render .is-clickable-note:focus-visible {
+  filter: drop-shadow(0 0 3px rgba(75, 137, 98, 0.55));
+}
+
 .sheet-music-error {
   margin: 18px 0 0;
   color: var(--muted);

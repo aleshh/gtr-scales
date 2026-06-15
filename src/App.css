@@ -573,6 +573,11 @@
   margin-top: 28px;
 }
 
+.chart-section {
+  display: grid;
+  gap: 16px;
+}
+
 .chart-card {
   min-width: 0;
   padding: 20px;
@@ -615,6 +620,55 @@
 
 .chart-meta {
   font-size: 0.9rem;
+}
+
+.sheet-music-card {
+  width: min(680px, 100%);
+  overflow: hidden;
+}
+
+.sheet-music-render {
+  min-height: 86px;
+  margin-top: 8px;
+  overflow: hidden;
+}
+
+.sheet-music-card.is-compact {
+  width: min(520px, 100%);
+  padding: 10px 14px;
+}
+
+.sheet-music-card.is-compact .sheet-music-render {
+  min-height: 82px;
+  margin-top: 2px;
+}
+
+.sheet-music-card.is-score-only .sheet-music-render {
+  margin-top: 0;
+}
+
+.sheet-music-embedded {
+  margin-top: 10px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(55, 90, 71, 0.12);
+  background: rgba(248, 252, 247, 0.62);
+  overflow: hidden;
+}
+
+.sheet-music-embedded .sheet-music-render {
+  min-height: 76px;
+  margin-top: 0;
+}
+
+.sheet-music-render > div,
+.sheet-music-render svg {
+  max-width: 100%;
+}
+
+.sheet-music-error {
+  margin: 18px 0 0;
+  color: var(--muted);
 }
 
 .chart-scroll {

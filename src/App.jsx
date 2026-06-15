@@ -1,6 +1,7 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Gauge, Metronome, Music4, Pause, Play, Plus, Repeat, Shuffle, Square, Trash2, X } from 'lucide-react'
 import './App.css'
+import SheetMusicChart from './components/SheetMusicChart'
 import {
   ROOT_OPTIONS,
   SCALE_LIBRARY,
@@ -37,6 +38,7 @@ import {
 } from './lib/clarinet'
 import { buildChordGroups, getChordName } from './lib/chords'
 import { buildArrangement } from './lib/arrangements'
+import { buildChordMusicXml, buildScaleMusicXml, buildVoicingMusicXml } from './lib/musicxml'
 
 const DEFAULT_QUERY_STATE = {
   mode: 'harmony',
@@ -583,6 +585,7 @@ function FretboardChart({
   fixedFrets = false,
   onPlayNote = null,
   onPlayVoicing = null,
+  notationMusicXml = null,
 }) {
   const hasOpenStrings = frets.includes(0)
   const fretColumns = hasOpenStrings ? frets.filter((fret) => fret !== 0) : frets
@@ -607,6 +610,13 @@ function FretboardChart({
           </button>
         ) : null}
       </div>
+
+      {notationMusicXml ? (
+        <SheetMusicChart
+          musicXml={notationMusicXml}
+          embedded
+        />
+      ) : null}
 
       <div className="chart-scroll">
         <div
@@ -2523,6 +2533,17 @@ function App() {
       {mode === 'scales' ? (
         <>
           <section className="chart-section">
+            <SheetMusicChart
+              title="Staff notation"
+              subtitle={`Ascending ${root.label} ${scale.name} through one octave.`}
+              musicXml={buildScaleMusicXml({
+                rootLabel: root.label,
+                rootPitchClass: root.pitchClass,
+                scale,
+                instrument,
+              })}
+            />
+
             {isFingerboardInstrument ? (
               <FretboardChart
                 title={isCello ? 'Cello fingering map' : 'Complete neck map'}
@@ -2646,6 +2667,15 @@ function App() {
                         </div>
                       </div>
 
+                      <SheetMusicChart
+                        title="First inversion"
+                        musicXml={buildChordMusicXml({
+                          chord: row,
+                          instrument,
+                        })}
+                        compact
+                      />
+
                       {instrument === 'guitar' ? (
                         <div className="voicing-grid">
                           {row.voicings.length > 0 ? (
@@ -2662,6 +2692,10 @@ function App() {
                               fixedFrets
                               onPlayNote={playNotePreview}
                               onPlayVoicing={playVoicingPreview}
+                              notationMusicXml={buildVoicingMusicXml({
+                                chordName: row.name,
+                                rows: voicing.rows,
+                              })}
                             />
                           ))
                         ) : (
@@ -3238,6 +3272,15 @@ function App() {
 
               <p className="arrangement-note">{selectedArrangementChord.dissonance.description}</p>
 
+              <SheetMusicChart
+                title="First inversion"
+                musicXml={buildChordMusicXml({
+                  chord: selectedArrangementChord,
+                  instrument,
+                })}
+                compact
+              />
+
               <article className="arrangement-fingerings">
                 <div className="inline-disclosure">
                   <button
@@ -3268,6 +3311,10 @@ function App() {
                           fixedFrets
                           onPlayNote={playNotePreview}
                           onPlayVoicing={playVoicingPreview}
+                          notationMusicXml={buildVoicingMusicXml({
+                            chordName: selectedArrangementChord.name,
+                            rows: voicing.rows,
+                          })}
                         />
                       ))
                     ) : isCello ? (

@@ -656,6 +656,18 @@
   overflow: hidden;
 }
 
+.sheet-music-embedded.is-bare {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.scale-staff-summary {
+  padding-block: 12px;
+}
+
 .sheet-music-embedded .sheet-music-render {
   min-height: 76px;
   margin-top: 0;

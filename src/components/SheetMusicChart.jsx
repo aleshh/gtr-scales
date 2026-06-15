@@ -6,6 +6,7 @@ export default function SheetMusicChart({
   musicXml,
   compact = false,
   embedded = false,
+  bare = false,
 }) {
   const containerRef = useRef(null)
   const osmdRef = useRef(null)
@@ -87,7 +88,10 @@ export default function SheetMusicChart({
 
   if (embedded) {
     return (
-      <div className="sheet-music-embedded" aria-label={title || 'Fingering notation'}>
+      <div
+        className={`sheet-music-embedded${bare ? ' is-bare' : ''}`}
+        aria-label={title || 'Staff notation'}
+      >
         {content}
       </div>
     )

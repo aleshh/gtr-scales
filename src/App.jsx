@@ -38,7 +38,13 @@ import {
 } from './lib/clarinet'
 import { buildChordGroups, getChordName } from './lib/chords'
 import { buildArrangement } from './lib/arrangements'
-import { buildChordMusicXml, buildScaleMusicXml, buildVoicingMusicXml } from './lib/musicxml'
+import {
+  buildChordMusicXml,
+  buildScaleMusicXml,
+  buildVoicingMusicXml,
+  getChordKeyFifths,
+  getScaleKeyFifths,
+} from './lib/musicxml'
 
 const DEFAULT_QUERY_STATE = {
   mode: 'harmony',
@@ -1321,6 +1327,8 @@ function App() {
   const scaleFormula = getScaleFormula(scale)
   const pitchCollection = getPitchCollectionLabels(root.pitchClass, scale.intervals)
   const chordGroups = buildChordGroups(root.pitchClass, flavor, complexity.id)
+  const chordKeyFifths = getChordKeyFifths(root.pitchClass, flavor.id)
+  const scaleKeyFifths = getScaleKeyFifths(root.pitchClass, scale.id)
   const composeChordPalette = [...arrangement.rows, ...customChords]
   const activeChordPalette = mode === 'compose' ? composeChordPalette : arrangement.rows
   const selectedArrangementChord = activeChordPalette.find((row) => row.id === selectedArrangementChordId) ?? activeChordPalette[0]
@@ -2508,7 +2516,22 @@ function App() {
         </div>
 
         <div className="hero-summary">
-          {mode !== 'chords' ? (
+          {mode === 'harmony' || mode === 'scales' ? (
+            <div className="summary-chip scale-staff-summary">
+              <SheetMusicChart
+                musicXml={buildScaleMusicXml({
+                  rootLabel: root.label,
+                  rootPitchClass: root.pitchClass,
+                  scale,
+                  instrument,
+                  keyFifths: scaleKeyFifths,
+                  showLabels: true,
+                })}
+                embedded
+                bare
+              />
+            </div>
+          ) : mode !== 'chords' ? (
             <div className="summary-chip summary-chip-group">
               <div>
                 <span>Formula</span>
@@ -2533,17 +2556,6 @@ function App() {
       {mode === 'scales' ? (
         <>
           <section className="chart-section">
-            <SheetMusicChart
-              title="Staff notation"
-              subtitle={`Ascending ${root.label} ${scale.name} through one octave.`}
-              musicXml={buildScaleMusicXml({
-                rootLabel: root.label,
-                rootPitchClass: root.pitchClass,
-                scale,
-                instrument,
-              })}
-            />
-
             {isFingerboardInstrument ? (
               <FretboardChart
                 title={isCello ? 'Cello fingering map' : 'Complete neck map'}
@@ -2672,6 +2684,7 @@ function App() {
                         musicXml={buildChordMusicXml({
                           chord: row,
                           instrument,
+                          keyFifths: chordKeyFifths,
                         })}
                         compact
                       />
@@ -2695,6 +2708,7 @@ function App() {
                               notationMusicXml={buildVoicingMusicXml({
                                 chordName: row.name,
                                 rows: voicing.rows,
+                                keyFifths: chordKeyFifths,
                               })}
                             />
                           ))
@@ -3277,6 +3291,7 @@ function App() {
                 musicXml={buildChordMusicXml({
                   chord: selectedArrangementChord,
                   instrument,
+                  keyFifths: scaleKeyFifths,
                 })}
                 compact
               />
@@ -3314,6 +3329,7 @@ function App() {
                           notationMusicXml={buildVoicingMusicXml({
                             chordName: selectedArrangementChord.name,
                             rows: voicing.rows,
+                            keyFifths: scaleKeyFifths,
                           })}
                         />
                       ))

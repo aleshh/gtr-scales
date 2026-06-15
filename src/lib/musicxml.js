@@ -12,6 +12,34 @@ const STEP_PITCH_CLASSES = {
 const STEPS = Object.keys(STEP_PITCH_CLASSES)
 const FLAT_PITCH_NAMES = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B']
 const SHARP_PITCH_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
+const MAJOR_KEY_FIFTHS_BY_PITCH_CLASS = [0, -5, 2, -3, 4, -1, 6, 1, -4, 3, -2, 5]
+const MINOR_KEY_FIFTHS_BY_PITCH_CLASS = [-3, 4, -1, -6, 1, -4, 3, -2, 5, 0, -5, 2]
+const MINOR_CHORD_FLAVORS = new Set(['natural-minor', 'harmonic-minor', 'jazz-minor'])
+const MODAL_PARENT_MAJOR_OFFSETS = {
+  dorian: 10,
+  mixolydian: 5,
+  lydian: 7,
+}
+const SCALE_KEY_CONTEXTS = {
+  ionian: ['major', 0],
+  dorian: ['major', 10],
+  phrygian: ['major', 8],
+  lydian: ['major', 7],
+  mixolydian: ['major', 5],
+  aeolian: ['major', 3],
+  locrian: ['major', 1],
+  'harmonic-minor': ['minor', 0],
+  'melodic-minor': ['minor', 0],
+  'harmonic-major': ['major', 0],
+  'phrygian-dominant': ['minor', 5],
+  'lydian-dominant': ['minor', 7],
+  altered: ['minor', 1],
+  'major-bebop': ['major', 0],
+  'dominant-bebop': ['major', 5],
+  'minor-bebop': ['minor', 0],
+  'double-harmonic': ['major', 0],
+  'hungarian-minor': ['minor', 0],
+}
 
 function escapeXml(value) {
   return String(value)
@@ -74,13 +102,13 @@ function getClef(instrument) {
   return '<clef><sign>G</sign><line>2</line></clef>'
 }
 
-function getWrittenMidi(midi, instrument) {
-  return instrument === 'guitar' ? midi + 12 : midi
+function getWrittenMidi(midi) {
+  return midi
 }
 
 function getScaleBaseMidi(rootPitchClass, instrument) {
   const minimumMidi = {
-    guitar: 52,
+    guitar: 40,
     cello: 48,
     'alto-recorder': 65,
     clarinet: 58,
@@ -118,8 +146,13 @@ function noteXml(pitch, {
   chord = false,
   duration = 1,
   type = 'quarter',
+  labels = [],
 } = {}) {
-  return `<note>${chord ? '<chord/>' : ''}${pitchXml(pitch)}<duration>${duration}</duration><type>${type}</type></note>`
+  const lyrics = labels
+    .map((label, index) => `<lyric number="${index + 1}"><text>${escapeXml(label)}</text></lyric>`)
+    .join('')
+
+  return `<note>${chord ? '<chord/>' : ''}${pitchXml(pitch)}<duration>${duration}</duration><type>${type}</type>${lyrics}</note>`
 }
 
 function restXml(duration = 1, type = 'quarter') {
@@ -131,7 +164,13 @@ function scoreXml({
   instrumentId,
   partName,
   measures,
+  keyFifths = null,
+  divisions = 1,
 }) {
+  const keySignature = Number.isFinite(keyFifths)
+    ? `<key><fifths>${keyFifths}</fifths></key>`
+    : ''
+
   return `<?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <score-partwise version="3.1">
   <work><work-title>${escapeXml(title)}</work-title></work>
@@ -141,7 +180,7 @@ function scoreXml({
   <part id="P1">
     ${measures.map((measure, index) => `
     <measure number="${index + 1}">
-      ${index === 0 ? `<attributes><divisions>1</divisions><time><beats>4</beats><beat-type>4</beat-type></time>${getClef(instrumentId)}</attributes>` : ''}
+      ${index === 0 ? `<attributes><divisions>${divisions}</divisions>${keySignature}<time><beats>4</beats><beat-type>4</beat-type></time>${getClef(instrumentId)}</attributes>` : ''}
       ${measure.join('')}
     </measure>`).join('')}
   </part>
@@ -158,11 +197,44 @@ function getInstrumentName(instrument) {
   }[instrument] ?? 'Instrument'
 }
 
+export function getChordKeyFifths(rootPitchClass, flavorId) {
+  if (MINOR_CHORD_FLAVORS.has(flavorId)) {
+    return MINOR_KEY_FIFTHS_BY_PITCH_CLASS[rootPitchClass]
+  }
+
+  const parentMajorOffset = MODAL_PARENT_MAJOR_OFFSETS[flavorId]
+  const keyPitchClass = Number.isFinite(parentMajorOffset)
+    ? (rootPitchClass + parentMajorOffset) % 12
+    : rootPitchClass
+
+  return MAJOR_KEY_FIFTHS_BY_PITCH_CLASS[keyPitchClass]
+}
+
+export function getScaleKeyFifths(rootPitchClass, scaleId) {
+  const [keyType, offset] = SCALE_KEY_CONTEXTS[scaleId] ?? []
+
+  if (!keyType) return 0
+
+  const keyPitchClass = (rootPitchClass + offset) % 12
+
+  return keyType === 'minor'
+    ? MINOR_KEY_FIFTHS_BY_PITCH_CLASS[keyPitchClass]
+    : MAJOR_KEY_FIFTHS_BY_PITCH_CLASS[keyPitchClass]
+}
+
+function getPitchLabel({ step, alter }) {
+  if (alter > 0) return `${step}${'#'.repeat(alter)}`
+  if (alter < 0) return `${step}${'b'.repeat(Math.abs(alter))}`
+  return step
+}
+
 export function buildScaleMusicXml({
   rootLabel,
   rootPitchClass,
   scale,
   instrument,
+  keyFifths = null,
+  showLabels = false,
 }) {
   const baseMidi = getScaleBaseMidi(rootPitchClass, instrument)
   const scaleNotes = [
@@ -174,24 +246,32 @@ export function buildScaleMusicXml({
   ]
   const notes = scaleNotes.map(({ interval, formulaLabel }) => {
     const writtenMidi = getWrittenMidi(baseMidi + interval, instrument)
-    return noteXml(getScalePitch(
+    const pitch = getScalePitch(
       rootLabel,
       rootPitchClass,
       interval % 12,
       formulaLabel,
       writtenMidi,
-    ))
+    )
+
+    return noteXml(pitch, showLabels ? {
+      duration: 1,
+      type: 'eighth',
+      labels: [getPitchLabel(pitch), formulaLabel],
+    } : undefined)
   })
-  const measures = []
+  const measures = showLabels ? [notes] : []
 
-  for (let index = 0; index < notes.length; index += 4) {
-    const measure = notes.slice(index, index + 4)
+  if (!showLabels) {
+    for (let index = 0; index < notes.length; index += 4) {
+      const measure = notes.slice(index, index + 4)
 
-    while (measure.length < 4) {
-      measure.push(restXml())
+      while (measure.length < 4) {
+        measure.push(restXml())
+      }
+
+      measures.push(measure)
     }
-
-    measures.push(measure)
   }
 
   return scoreXml({
@@ -199,6 +279,8 @@ export function buildScaleMusicXml({
     instrumentId: instrument,
     partName: getInstrumentName(instrument),
     measures,
+    keyFifths,
+    divisions: showLabels ? 2 : 1,
   })
 }
 
@@ -212,6 +294,7 @@ function getVoicingNotes(rows) {
 export function buildChordMusicXml({
   chord,
   instrument,
+  keyFifths = null,
 }) {
   const qualityId = chord.qualityId ?? chord.quality
   const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.maj
@@ -241,12 +324,14 @@ export function buildChordMusicXml({
     instrumentId: instrument,
     partName: getInstrumentName(instrument),
     measures: [notes],
+    keyFifths,
   })
 }
 
 export function buildVoicingMusicXml({
   chordName,
   rows,
+  keyFifths = null,
 }) {
   const voicingNotes = getVoicingNotes(rows)
   const rootNote = voicingNotes.find((note) => note.interval === 0)
@@ -274,5 +359,6 @@ export function buildVoicingMusicXml({
     instrumentId: 'guitar',
     partName: 'Guitar',
     measures: [notes],
+    keyFifths,
   })
 }

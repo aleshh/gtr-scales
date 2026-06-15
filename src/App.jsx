@@ -43,6 +43,7 @@ import {
   buildScaleMusicXml,
   buildVoicingMusicXml,
   getChordKeyFifths,
+  getChordStaffMidiNotes,
   getScaleKeyFifths,
 } from './lib/musicxml'
 
@@ -1741,8 +1742,9 @@ function App() {
 
     const startTime = audioContext.currentTime + 0.01
     const previewGain = audioContext.createGain()
-    const frequencies = instrument === 'guitar' && chord.voicings?.[0]
-      ? getFretboardVoicingFrequencies(chord.voicings[0].rows)
+    const staffNotes = getChordStaffMidiNotes(chord, instrument)
+    const frequencies = staffNotes.length > 0
+      ? staffNotes.map((note) => getFrequencyFromMidi(note.midi))
       : getChordPlaybackFrequencies(chord)
 
     previewGain.gain.setValueAtTime(0.95, startTime)
@@ -2682,7 +2684,6 @@ function App() {
                       </div>
 
                       <SheetMusicChart
-                        title="First inversion"
                         musicXml={buildChordMusicXml({
                           chord: row,
                           instrument,
@@ -3290,7 +3291,6 @@ function App() {
               <p className="arrangement-note">{selectedArrangementChord.dissonance.description}</p>
 
               <SheetMusicChart
-                title="First inversion"
                 musicXml={buildChordMusicXml({
                   chord: selectedArrangementChord,
                   instrument,

@@ -190,6 +190,50 @@ function getChordBaseMidi(rootPitchClass, instrument) {
   return midi
 }
 
+function getNotationRange(instrument) {
+  if (instrument === 'cello') {
+    return {
+      lowestMidi: 36,
+      highestMidi: 69,
+      notationOffset: 0,
+      staffMinimumMidi: 43,
+      staffMaximumMidi: 57,
+    }
+  }
+
+  if (instrument === 'guitar') {
+    return {
+      lowestMidi: 40,
+      highestMidi: 79,
+      notationOffset: 12,
+      staffMinimumMidi: 60,
+      staffMaximumMidi: 81,
+    }
+  }
+
+  return {
+    lowestMidi: 48,
+    highestMidi: 84,
+    notationOffset: 0,
+    staffMinimumMidi: 60,
+    staffMaximumMidi: 81,
+  }
+}
+
+function getLedgerPenalty(noteMidi, range) {
+  const writtenMidi = noteMidi + range.notationOffset
+
+  if (writtenMidi < range.staffMinimumMidi) {
+    return (range.staffMinimumMidi - writtenMidi) ** 2
+  }
+
+  if (writtenMidi > range.staffMaximumMidi) {
+    return (writtenMidi - range.staffMaximumMidi) ** 2
+  }
+
+  return 0
+}
+
 function getChordRootLabel(chord) {
   return chord.name.match(/^[A-G](?:b|#)?/)?.[0] ?? FLAT_PITCH_NAMES[chord.rootPitchClass]
 }
@@ -354,12 +398,9 @@ export function buildChordMusicXml({
 }) {
   const qualityId = chord.qualityId ?? chord.quality
   const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.maj
-  const baseMidi = getChordBaseMidi(chord.rootPitchClass, instrument)
   const rootLabel = getChordRootLabel(chord)
-  const intervals = Object.keys(quality.toneLabels).map(Number).sort((left, right) => left - right)
-  const firstInversionIntervals = [...intervals.slice(1), intervals[0] + 12]
-  const notes = firstInversionIntervals.map((interval, index) => {
-    const midi = baseMidi + interval
+  const staffNotes = getChordStaffMidiNotes(chord, instrument)
+  const notes = staffNotes.map(({ midi, interval }, index) => {
     const writtenMidi = getWrittenMidi(midi, instrument)
 
     return noteXml(getScalePitch(
@@ -382,6 +423,31 @@ export function buildChordMusicXml({
     measures: [notes],
     keyFifths,
   })
+}
+
+export function getChordStaffMidiNotes(chord, instrument) {
+  const qualityId = chord.qualityId ?? chord.quality
+  const quality = CHORD_QUALITIES[qualityId] ?? CHORD_QUALITIES.maj
+  const range = getNotationRange(instrument)
+  const baseMidi = getChordBaseMidi(chord.rootPitchClass, instrument)
+  const intervals = Object.keys(quality.toneLabels).map(Number).sort((left, right) => left - right)
+  const chordVoicings = intervals.map((_, inversion) => (
+    [...intervals.slice(inversion), ...intervals.slice(0, inversion).map((interval) => interval + 12)]
+  ))
+  const optimizedIntervals = chordVoicings.reduce((best, candidate) => {
+    const midiNotes = candidate.map((interval) => baseMidi + interval)
+    const ledgerPenalty = midiNotes.reduce((sum, midi) => sum + getLedgerPenalty(midi, range), 0)
+    const spanPenalty = midiNotes.at(-1) - midiNotes[0]
+    const rangePenalty = midiNotes.some((midi) => midi < range.lowestMidi || midi > range.highestMidi) ? 10000 : 0
+    const score = rangePenalty + ledgerPenalty * 100 + spanPenalty
+
+    return !best || score < best.score ? { intervals: candidate, score } : best
+  }, null)?.intervals ?? intervals
+
+  return optimizedIntervals.map((interval) => ({
+    interval,
+    midi: baseMidi + interval,
+  }))
 }
 
 export function buildVoicingMusicXml({

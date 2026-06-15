@@ -106,10 +106,66 @@ function getWrittenMidi(midi) {
   return midi
 }
 
-function getScaleBaseMidi(rootPitchClass, instrument) {
+function getOptimizedScaleBaseMidi({
+  rootPitchClass,
+  intervals,
+  lowestMidi,
+  highestMidi,
+  notationOffset = 0,
+  staffMinimumMidi,
+  staffMaximumMidi,
+}) {
+  const highestInterval = Math.max(...intervals, 12)
+  const candidates = []
+
+  for (let midi = lowestMidi; midi + highestInterval <= highestMidi; midi += 1) {
+    if (midi % 12 === rootPitchClass) {
+      candidates.push(midi)
+    }
+  }
+
+  return candidates.reduce((bestMidi, midi) => {
+    const writtenNotes = [...intervals, 12].map((interval) => midi + interval + notationOffset)
+    const ledgerPenalty = writtenNotes.reduce((total, noteMidi) => {
+      if (noteMidi < staffMinimumMidi) return total + (staffMinimumMidi - noteMidi) ** 2
+      if (noteMidi > staffMaximumMidi) return total + (noteMidi - staffMaximumMidi) ** 2
+      return total
+    }, 0)
+    const centerPenalty = Math.abs(
+      writtenNotes.reduce((total, noteMidi) => total + noteMidi, 0) / writtenNotes.length
+        - ((staffMinimumMidi + staffMaximumMidi) / 2),
+    )
+    const score = ledgerPenalty * 100 + centerPenalty
+
+    return !bestMidi || score < bestMidi.score ? { midi, score } : bestMidi
+  }, null)?.midi ?? lowestMidi
+}
+
+function getScaleBaseMidi(rootPitchClass, instrument, intervals) {
+  if (instrument === 'guitar') {
+    return getOptimizedScaleBaseMidi({
+      rootPitchClass,
+      intervals,
+      lowestMidi: 40,
+      highestMidi: 79,
+      notationOffset: 12,
+      staffMinimumMidi: 60,
+      staffMaximumMidi: 81,
+    })
+  }
+
+  if (instrument === 'cello') {
+    return getOptimizedScaleBaseMidi({
+      rootPitchClass,
+      intervals,
+      lowestMidi: 36,
+      highestMidi: 69,
+      staffMinimumMidi: 43,
+      staffMaximumMidi: 57,
+    })
+  }
+
   const minimumMidi = {
-    guitar: 40,
-    cello: 48,
     'alto-recorder': 65,
     clarinet: 58,
     piano: 60,
@@ -236,7 +292,7 @@ export function buildScaleMusicXml({
   keyFifths = null,
   showLabels = false,
 }) {
-  const baseMidi = getScaleBaseMidi(rootPitchClass, instrument)
+  const baseMidi = getScaleBaseMidi(rootPitchClass, instrument, scale.intervals)
   const scaleNotes = [
     ...scale.intervals.map((interval, index) => ({
       interval,

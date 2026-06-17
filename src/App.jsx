@@ -142,18 +142,23 @@ const CHORD_PALETTE_SORT_OPTIONS = [
   },
   {
     id: 'inside',
-    label: 'Scale tones first',
-    help: 'Start with smoother chords whose tones fit the selected scale, then move toward borrowed tension.',
+    label: 'Scale tones',
+    help: 'Group chords that fit the selected scale before borrowed and outside colors.',
   },
   {
     id: 'fifths',
-    label: 'Circle of fifths',
-    help: 'Group roots by fifth relationships, useful for hearing dominant motion and common progressions.',
+    label: 'Circle',
+    help: 'Order roots by fifth relationships, useful for hearing dominant motion and common progressions.',
   },
   {
-    id: 'dissonant',
-    label: 'Dissonant first',
-    help: 'Lead with the highest-tension colors for outside movement, contrast, and release ideas.',
+    id: 'smooth',
+    label: 'Smooth path',
+    help: 'Arrange each chord near the previous one, favoring shared tones and small voice-leading moves.',
+  },
+  {
+    id: 'contrast',
+    label: 'Contrast path',
+    help: 'Arrange each chord far from the previous one, favoring fewer shared tones and bigger harmonic jumps.',
   },
 ]
 const FIFTH_ORDER = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]
@@ -529,7 +534,98 @@ function getChordRootInterval(chord, tonicPitchClass) {
   return chord.interval ?? 0
 }
 
+function getChordTonePitchClasses(chord) {
+  const quality = CHORD_QUALITIES[chord.qualityId ?? chord.quality]
+
+  if (!quality || !Number.isFinite(chord.rootPitchClass)) return []
+
+  return Object.keys(quality.toneLabels)
+    .map(Number)
+    .map((interval) => (chord.rootPitchClass + interval) % 12)
+}
+
+function getPitchClassDistance(left, right) {
+  const distance = Math.abs(left - right)
+
+  return Math.min(distance, 12 - distance)
+}
+
+function getSharedToneCount(leftTones, rightTones) {
+  return leftTones.filter((tone) => rightTones.includes(tone)).length
+}
+
+function getNearestToneDistance(tone, tones) {
+  if (tones.length === 0) return 6
+
+  return Math.min(...tones.map((candidate) => getPitchClassDistance(tone, candidate)))
+}
+
+function getVoiceLeadingDistance(leftTones, rightTones) {
+  if (leftTones.length === 0 || rightTones.length === 0) return 12
+
+  const leftDistance = leftTones.reduce((sum, tone) => sum + getNearestToneDistance(tone, rightTones), 0)
+  const rightDistance = rightTones.reduce((sum, tone) => sum + getNearestToneDistance(tone, leftTones), 0)
+
+  return (leftDistance + rightDistance) / (leftTones.length + rightTones.length)
+}
+
+function getChordPathScore(leftChord, rightChord) {
+  const leftTones = getChordTonePitchClasses(leftChord)
+  const rightTones = getChordTonePitchClasses(rightChord)
+  const sharedTones = getSharedToneCount(leftTones, rightTones)
+  const possibleSharedTones = Math.max(leftTones.length, rightTones.length)
+  const voiceLeading = getVoiceLeadingDistance(leftTones, rightTones)
+  const tensionShift = Math.abs(getChordDissonanceRank(leftChord) - getChordDissonanceRank(rightChord))
+
+  return {
+    contrast: voiceLeading + (possibleSharedTones - sharedTones) * 3 + tensionShift * 2,
+    smooth: voiceLeading - sharedTones * 3 + tensionShift,
+  }
+}
+
+function sortChordPalettePath(rows, tonicPitchClass, pathMode) {
+  if (rows.length <= 1) return rows
+
+  const remaining = rows.map((row, index) => ({ row, index }))
+  const tonicIndex = remaining.findIndex((item) => getChordRootInterval(item.row, tonicPitchClass) === 0)
+  const startIndex = tonicIndex === -1 ? 0 : tonicIndex
+  const ordered = [remaining.splice(startIndex, 1)[0]]
+
+  while (remaining.length > 0) {
+    const current = ordered.at(-1).row
+    let bestIndex = 0
+
+    for (let index = 1; index < remaining.length; index += 1) {
+      const candidate = remaining[index]
+      const best = remaining[bestIndex]
+      const candidateScore = getChordPathScore(current, candidate.row)[pathMode]
+      const bestScore = getChordPathScore(current, best.row)[pathMode]
+      const scoreDelta = pathMode === 'contrast'
+        ? bestScore - candidateScore
+        : candidateScore - bestScore
+
+      if (
+        scoreDelta < 0
+        || (scoreDelta === 0
+          && (getChordRootInterval(candidate.row, tonicPitchClass) < getChordRootInterval(best.row, tonicPitchClass)
+            || (getChordRootInterval(candidate.row, tonicPitchClass) === getChordRootInterval(best.row, tonicPitchClass)
+              && candidate.index < best.index)))
+      ) {
+        bestIndex = index
+      }
+    }
+
+    ordered.push(remaining.splice(bestIndex, 1)[0])
+  }
+
+  return ordered.map((item) => item.row)
+}
+
 function sortChordPaletteRows(rows, sortMode, tonicPitchClass) {
+  if (sortMode === 'smooth' || sortMode === 'contrast') {
+    return sortChordPalettePath(rows, tonicPitchClass, sortMode)
+  }
+
   return rows
     .map((row, index) => ({ row, index }))
     .sort((left, right) => {
@@ -543,12 +639,6 @@ function sortChordPaletteRows(rows, sortMode, tonicPitchClass) {
         const rightFifth = FIFTH_ORDER.indexOf(getChordRootInterval(right.row, tonicPitchClass))
 
         return (leftFifth === -1 ? 99 : leftFifth) - (rightFifth === -1 ? 99 : rightFifth)
-          || left.index - right.index
-      }
-
-      if (sortMode === 'dissonant') {
-        return getChordDissonanceRank(right.row) - getChordDissonanceRank(left.row)
-          || getChordInsideRank(right.row) - getChordInsideRank(left.row)
           || left.index - right.index
       }
 

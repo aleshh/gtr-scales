@@ -38,6 +38,7 @@ import {
 } from './lib/clarinet'
 import { buildChordGroups, getChordName } from './lib/chords'
 import { buildArrangement } from './lib/arrangements'
+import { formatMusicText } from './lib/display'
 import {
   buildChordMusicXml,
   buildScaleMusicXml,
@@ -133,6 +134,34 @@ const DEFAULT_PROGRESSION_TEMPO = 96
 const DEFAULT_PROGRESSION_CHORD_VOLUME = 82
 const DEFAULT_PROGRESSION_CLICK_VOLUME = 46
 const DEFAULT_PLAYBACK_VOICE = 'auto'
+const CHORD_PALETTE_SORT_OPTIONS = [
+  {
+    id: 'root',
+    label: 'Root order',
+    help: 'Move upward from the selected tonic by chord root, like reading the scale from home base.',
+  },
+  {
+    id: 'inside',
+    label: 'Scale tones first',
+    help: 'Start with smoother chords whose tones fit the selected scale, then move toward borrowed tension.',
+  },
+  {
+    id: 'fifths',
+    label: 'Circle of fifths',
+    help: 'Group roots by fifth relationships, useful for hearing dominant motion and common progressions.',
+  },
+  {
+    id: 'dissonant',
+    label: 'Dissonant first',
+    help: 'Lead with the highest-tension colors for outside movement, contrast, and release ideas.',
+  },
+]
+const FIFTH_ORDER = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]
+const DISSONANCE_ORDER = {
+  Low: 0,
+  Medium: 1,
+  High: 2,
+}
 const PROGRESSION_DURATION_OPTIONS = [
   { label: '1/8 bar', ticks: 1 },
   { label: '1/4 bar', ticks: 2 },
@@ -482,6 +511,58 @@ function getWeightedChord(chords, typicality) {
   return weighted.at(-1)?.chord ?? chords[0]
 }
 
+function getChordDissonanceRank(chord) {
+  return DISSONANCE_ORDER[chord.dissonance?.level] ?? 1
+}
+
+function getChordInsideRank(chord) {
+  if (chord.tags?.includes('scale tone') || chord.tags?.includes('inside')) return 0
+  if (chord.tags?.includes('borrowed')) return 1
+  return 2
+}
+
+function getChordRootInterval(chord, tonicPitchClass) {
+  if (Number.isFinite(chord.rootPitchClass)) {
+    return (chord.rootPitchClass - tonicPitchClass + 12) % 12
+  }
+
+  return chord.interval ?? 0
+}
+
+function sortChordPaletteRows(rows, sortMode, tonicPitchClass) {
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((left, right) => {
+      if (sortMode === 'root') {
+        return getChordRootInterval(left.row, tonicPitchClass) - getChordRootInterval(right.row, tonicPitchClass)
+          || left.index - right.index
+      }
+
+      if (sortMode === 'fifths') {
+        const leftFifth = FIFTH_ORDER.indexOf(getChordRootInterval(left.row, tonicPitchClass))
+        const rightFifth = FIFTH_ORDER.indexOf(getChordRootInterval(right.row, tonicPitchClass))
+
+        return (leftFifth === -1 ? 99 : leftFifth) - (rightFifth === -1 ? 99 : rightFifth)
+          || left.index - right.index
+      }
+
+      if (sortMode === 'dissonant') {
+        return getChordDissonanceRank(right.row) - getChordDissonanceRank(left.row)
+          || getChordInsideRank(right.row) - getChordInsideRank(left.row)
+          || left.index - right.index
+      }
+
+      if (sortMode === 'inside') {
+        return getChordInsideRank(left.row) - getChordInsideRank(right.row)
+          || getChordDissonanceRank(left.row) - getChordDissonanceRank(right.row)
+          || left.index - right.index
+      }
+
+      return left.index - right.index
+    })
+    .map((item) => item.row)
+}
+
 function getRandomDurationTicks(maxTicks, typicality) {
   const durationPool = typicality < 34
     ? [8, 8, 8, 4, 16]
@@ -532,6 +613,14 @@ function createCustomChord(rootPitchClass, qualityId) {
     suggestions: [],
     isCustom: true,
   }
+}
+
+function musicLabel(value) {
+  return formatMusicText(value)
+}
+
+function chordLabel(value) {
+  return String(value)
 }
 
 function fillProgressionGaps(events, chords, barCount, typicality) {
@@ -653,11 +742,11 @@ function FretboardChart({
                     <button
                       type="button"
                       className={`degree-chip${row.notes[0].isRoot ? ' is-root' : ''}`}
-                      title={`${row.notes[0].noteLabel} · degree ${row.notes[0].degree}`}
-                      aria-label={`${row.notes[0].noteLabel}, degree ${row.notes[0].degree}`}
+                      title={`${musicLabel(row.notes[0].noteLabel)} · degree ${musicLabel(row.notes[0].degree)}`}
+                      aria-label={`${musicLabel(row.notes[0].noteLabel)}, degree ${musicLabel(row.notes[0].degree)}`}
                       onClick={() => onPlayNote?.(row.notes[0])}
                     >
-                      {row.notes[0].degree}
+                      {musicLabel(row.notes[0].degree)}
                     </button>
                   ) : null}
                 </div>
@@ -674,11 +763,11 @@ function FretboardChart({
                       <button
                         type="button"
                         className={`degree-chip${note.isRoot ? ' is-root' : ''}`}
-                        title={`${note.noteLabel} · degree ${note.degree}`}
-                        aria-label={`${note.noteLabel}, degree ${note.degree}`}
+                        title={`${musicLabel(note.noteLabel)} · degree ${musicLabel(note.degree)}`}
+                        aria-label={`${musicLabel(note.noteLabel)}, degree ${musicLabel(note.degree)}`}
                         onClick={() => onPlayNote?.(note)}
                       >
-                        {note.degree}
+                        {musicLabel(note.degree)}
                       </button>
                     ) : null}
                   </div>
@@ -751,12 +840,12 @@ function PianoKeyboardChart({
         key={`${title}-${color}-${key.index}-${key.pitchClass}`}
         style={{ '--key-index': key.index }}
       >
-        <div className="piano-note-label">{noteLabel}</div>
+        <div className="piano-note-label">{musicLabel(noteLabel)}</div>
         <button
           type="button"
           className={`piano-key is-${color}${isActive ? ' is-active' : ''}${isRoot ? ' is-root' : ''}`}
-          title={isActive ? `${noteLabel} · degree ${label}` : noteLabel}
-          aria-label={isActive ? `${noteLabel}, degree ${label}` : noteLabel}
+          title={isActive ? `${musicLabel(noteLabel)} · degree ${musicLabel(label)}` : musicLabel(noteLabel)}
+          aria-label={isActive ? `${musicLabel(noteLabel)}, degree ${musicLabel(label)}` : musicLabel(noteLabel)}
           onClick={isActive ? () => onPlayNote?.({
             midiNote: key.midiNote,
             pitchClass: key.pitchClass,
@@ -765,7 +854,7 @@ function PianoKeyboardChart({
           }) : undefined}
           disabled={!isActive}
         >
-          {isActive ? <span>{label}</span> : null}
+          {isActive ? <span>{musicLabel(label)}</span> : null}
         </button>
       </div>
     )
@@ -841,8 +930,8 @@ function RecorderFingeringChart({
               key={`${title}-${item.midiNote}-label`}
               onClick={() => onPlayNote?.(item)}
             >
-              <strong>{item.noteLabel}</strong>
-              <span>{item.degree}</span>
+              <strong>{musicLabel(item.noteLabel)}</strong>
+              <span>{musicLabel(item.degree)}</span>
             </button>
           ))}
 
@@ -859,7 +948,7 @@ function RecorderFingeringChart({
                 <div
                   className={`recorder-matrix-cell${item.isRoot ? ' is-root-column' : ''}${holeIndex === 0 ? ' is-thumb-row is-group-end' : ''}${holeIndex === 3 || holeIndex === 6 ? ' is-group-end' : ''}`}
                   key={`${title}-${item.midiNote}-${hole}`}
-                  aria-label={`${item.noteLabel}, degree ${item.degree}, hole ${hole}: ${item.pattern[holeIndex] ?? 'open'}`}
+                  aria-label={`${musicLabel(item.noteLabel)}, degree ${musicLabel(item.degree)}, hole ${hole}: ${item.pattern[holeIndex] ?? 'open'}`}
                 >
                   {renderHoleGlyph(item.pattern[holeIndex], holeIndex >= 6)}
                 </div>
@@ -899,7 +988,7 @@ function ClarinetInstrumentDiagram({ item }) {
   }
 
   return (
-    <div className="clarinet-glyph" aria-label={`${item.noteLabel}, degree ${item.degree}, clarinet fingering`}>
+    <div className="clarinet-glyph" aria-label={`${musicLabel(item.noteLabel)}, degree ${musicLabel(item.degree)}, clarinet fingering`}>
       {renderLever('reg', 'is-register')}
       {renderToneHole('thumb', 'is-thumb')}
       {renderToneHole('l1', 'is-l1')}
@@ -943,8 +1032,8 @@ function ClarinetFingeringChart({
             onClick={() => onPlayNote?.(item)}
           >
             <div className="clarinet-note-heading">
-              <strong>{item.noteLabel}</strong>
-              <span>{item.degree}</span>
+              <strong>{musicLabel(item.noteLabel)}</strong>
+              <span>{musicLabel(item.degree)}</span>
             </div>
 
             <ClarinetInstrumentDiagram item={item} />
@@ -1265,6 +1354,7 @@ function App() {
   const [customChords, setCustomChords] = useState([])
   const [customChordRootLabel, setCustomChordRootLabel] = useState(() => readQueryState(window.location.search).root)
   const [customChordQualityId, setCustomChordQualityId] = useState('maj')
+  const [chordPaletteSort, setChordPaletteSort] = useState('root')
   const [openTools, setOpenTools] = useState({ metronome: false, tuner: false })
   const [progressionTempo, setProgressionTempo] = useState(DEFAULT_PROGRESSION_TEMPO)
   const [progressionClickMode, setProgressionClickMode] = useState('beat')
@@ -2183,7 +2273,11 @@ function App() {
   }
 
   function renderChordPalette({ allowCustomChords = false } = {}) {
-    const paletteRows = allowCustomChords ? composeChordPalette : arrangement.rows
+    const paletteRows = sortChordPaletteRows(
+      allowCustomChords ? composeChordPalette : arrangement.rows,
+      chordPaletteSort,
+      root.pitchClass,
+    )
 
     return (
       <div
@@ -2191,7 +2285,7 @@ function App() {
         role="tablist"
         aria-label="Chord palette"
       >
-        {paletteRows.map((row, index) => (
+        {paletteRows.map((row) => (
           <div className="palette-chord-item" key={row.id}>
             <button
               className={`palette-chord-button${selectedArrangementChord?.id === row.id ? ' is-active' : ''}`}
@@ -2211,16 +2305,15 @@ function App() {
               }}
               onClick={() => setSelectedArrangementChordId(row.id)}
             >
-              <span>{index + 1}</span>
-              <strong>{row.name}</strong>
-              <small>{row.numeral}</small>
+              <strong>{chordLabel(row.name)}</strong>
+              <small>{musicLabel(row.numeral)}</small>
             </button>
 
             <button
               className="palette-play-button"
               type="button"
-              aria-label={`Preview ${row.name}`}
-              title={`Preview ${row.name}`}
+              aria-label={`Preview ${chordLabel(row.name)}`}
+              title={`Preview ${chordLabel(row.name)}`}
               onClick={() => playChordPreview(row)}
             >
               <Play size={12} />
@@ -2230,7 +2323,7 @@ function App() {
               <button
                 className="palette-remove-button"
                 type="button"
-                aria-label={`Remove ${row.name} from palette`}
+                aria-label={`Remove ${chordLabel(row.name)} from palette`}
                 onClick={() => deleteCustomChord(row.id)}
               >
                 <X size={12} strokeWidth={2.6} aria-hidden="true" />
@@ -2279,6 +2372,34 @@ function App() {
         ) : null}
       </div>
     )
+  }
+
+  function renderPaletteSortControl() {
+    return (
+      <div className="palette-sort-control">
+        <span id="palette-sort-label">Sort</span>
+        <div className="palette-sort-tabs" role="tablist" aria-labelledby="palette-sort-label">
+          {CHORD_PALETTE_SORT_OPTIONS.map((option) => (
+            <button
+              className={chordPaletteSort === option.id ? 'is-active' : ''}
+              key={option.id}
+              type="button"
+              role="tab"
+              aria-selected={chordPaletteSort === option.id}
+              onClick={() => setChordPaletteSort(option.id)}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  function renderPaletteSortHelp() {
+    const sortOption = CHORD_PALETTE_SORT_OPTIONS.find((option) => option.id === chordPaletteSort)
+
+    return <p className="palette-sort-help">{sortOption?.help}</p>
   }
 
   return (
@@ -2504,7 +2625,7 @@ function App() {
 
       <section className="hero-panel">
         <div className="hero-copy">
-          <h1>{heroTitle}</h1>
+          <h1>{chordLabel(heroTitle)}</h1>
           <div className="hero-meta">
             <div className="hero-meta-block">
               <p className="info-label">How it sounds</p>
@@ -2543,7 +2664,7 @@ function App() {
               </div>
               <div>
                 <span>Pitch collection</span>
-                <strong>{pitchCollection.join('  ')}</strong>
+                <strong>{pitchCollection.map(musicLabel).join('  ')}</strong>
               </div>
               {mode === 'harmony' || mode === 'compose' ? (
                 <div>
@@ -2659,22 +2780,22 @@ function App() {
                       <div className="chord-row-copy">
                         <div className="chord-row-title">
                           <div className="chord-title-line">
-                            <h3>{row.name}</h3>
+                            <h3>{chordLabel(row.name)}</h3>
                             <button
                               className="inline-play-button"
                               type="button"
-                              aria-label={`Preview ${row.name}`}
-                              title={`Preview ${row.name}`}
+                              aria-label={`Preview ${chordLabel(row.name)}`}
+                              title={`Preview ${chordLabel(row.name)}`}
                               onClick={() => playChordPreview(row)}
                             >
                               <Play size={14} />
                             </button>
                           </div>
-                          <p>{row.numeral} · {row.summary}</p>
+                          <p>{musicLabel(row.numeral)} · {row.summary}</p>
                         </div>
 
                         <div className="chord-row-tags">
-                          <span className="mini-tag">Formula {row.formula}</span>
+                          <span className="mini-tag">Formula {musicLabel(row.formula)}</span>
                           {row.tags.map((tag) => (
                             <span className="mini-tag" key={`${row.id}-${tag}`}>
                               {tag}
@@ -2732,8 +2853,8 @@ function App() {
                         </div>
                       ) : isCello ? (
                         <FretboardChart
-                          title={`${row.name} cello fingerings`}
-                          subtitle={row.formula}
+                          title={`${chordLabel(row.name)} cello fingerings`}
+                          subtitle={musicLabel(row.formula)}
                           frets={fullNeckFrets}
                           rows={getChordToneRows(row)}
                           compact
@@ -2741,24 +2862,24 @@ function App() {
                         />
                       ) : isRecorder ? (
                         <RecorderFingeringChart
-                          title={`${row.name} alto recorder fingerings`}
-                          subtitle={row.formula}
+                          title={`${chordLabel(row.name)} alto recorder fingerings`}
+                          subtitle={musicLabel(row.formula)}
                           items={getChordToneRecorderItems(row)}
                           compact
                           onPlayNote={playNotePreview}
                         />
                       ) : isClarinet ? (
                         <ClarinetFingeringChart
-                          title={`${row.name} clarinet fingerings`}
-                          subtitle={row.formula}
+                          title={`${chordLabel(row.name)} clarinet fingerings`}
+                          subtitle={musicLabel(row.formula)}
                           items={getChordToneClarinetItems(row)}
                           compact
                           onPlayNote={playNotePreview}
                         />
                       ) : (
                         <PianoKeyboardChart
-                          title={`${row.name} keyboard tones`}
-                          subtitle={row.formula}
+                          title={`${chordLabel(row.name)} keyboard tones`}
+                          subtitle={musicLabel(row.formula)}
                           pitchClasses={Object.keys(CHORD_QUALITIES[row.qualityId]?.toneLabels ?? {}).map((interval) => (row.rootPitchClass + Number(interval)) % 12)}
                           rootPitchClass={row.rootPitchClass}
                           labelsByPitchClass={Object.fromEntries(Object.entries(CHORD_QUALITIES[row.qualityId]?.toneLabels ?? {}).map(([interval, label]) => [(row.rootPitchClass + Number(interval)) % 12, label]))}
@@ -2791,7 +2912,11 @@ function App() {
               {renderPrimaryScaleReference()}
 
               <div className="palette-heading">
-                <h2>{harmonyChordPaletteLabel} in the {scale.name} scale</h2>
+                <div className="palette-heading-row">
+                  <h2>{harmonyChordPaletteLabel} in the {scale.name} scale</h2>
+                  {renderPaletteSortControl()}
+                </div>
+                {renderPaletteSortHelp()}
               </div>
               {renderChordPalette()}
             </>
@@ -2920,6 +3045,12 @@ function App() {
               </div>
 
               <div className="compose-chord-panel">
+                <div className="compose-palette-header">
+                  <div className="palette-heading-row">
+                    {renderPaletteSortControl()}
+                  </div>
+                  {renderPaletteSortHelp()}
+                </div>
                 {renderChordPalette({ allowCustomChords: true })}
 
                 <div className="compose-add-section">
@@ -3055,7 +3186,7 @@ function App() {
                               gridColumn: `${previewStartTick - barStartTick + 1} / ${previewEndTick - barStartTick + 1}`,
                             }}
                           >
-                            <strong>{previewChord.name}</strong>
+                            <strong>{chordLabel(previewChord.name)}</strong>
                             <span>{getDurationLabel(previewInBar.durationTicks)}</span>
                           </div>
                         )
@@ -3077,7 +3208,7 @@ function App() {
                             className={`progression-event${selectedProgressionEventId === event.id ? ' is-selected' : ''}`}
                             role="button"
                             tabIndex="0"
-                            aria-label={`Select ${chord.name} from bar ${Math.floor(event.startTick / PROGRESSION_TICKS_PER_BAR) + 1}`}
+                            aria-label={`Select ${chordLabel(chord.name)} from bar ${Math.floor(event.startTick / PROGRESSION_TICKS_PER_BAR) + 1}`}
                             key={`${event.id}-bar-${barIndex + 1}`}
                             style={{
                               gridColumn: `${gridColumnStart} / ${gridColumnEnd}`,
@@ -3098,7 +3229,7 @@ function App() {
                               <button
                                 className="progression-remove-button"
                                 type="button"
-                                aria-label={`Remove ${chord.name} from bar ${Math.floor(event.startTick / PROGRESSION_TICKS_PER_BAR) + 1}`}
+                                aria-label={`Remove ${chordLabel(chord.name)} from bar ${Math.floor(event.startTick / PROGRESSION_TICKS_PER_BAR) + 1}`}
                                 onClick={(clickEvent) => {
                                   clickEvent.stopPropagation()
                                   deleteProgressionEvent(event.id)
@@ -3113,7 +3244,7 @@ function App() {
                                 className="progression-resize-handle is-start"
                                 draggable
                                 role="separator"
-                                aria-label={`Resize start of ${chord.name}`}
+                                aria-label={`Resize start of ${chordLabel(chord.name)}`}
                                 onDragStart={(dragEvent) => {
                                   dragEvent.stopPropagation()
                                   dragEvent.dataTransfer.setData('application/x-progression-resize', JSON.stringify({
@@ -3127,7 +3258,7 @@ function App() {
                             ) : null}
 
                             <div className="progression-event-copy">
-                              <strong>{chord.name}</strong>
+                              <strong>{chordLabel(chord.name)}</strong>
                               <span>{chord.numeral}</span>
                             </div>
 
@@ -3136,7 +3267,7 @@ function App() {
                                 className="progression-resize-handle is-end"
                                 draggable
                                 role="separator"
-                                aria-label={`Resize end of ${chord.name}`}
+                                aria-label={`Resize end of ${chordLabel(chord.name)}`}
                                 onDragStart={(dragEvent) => {
                                   dragEvent.stopPropagation()
                                   dragEvent.dataTransfer.setData('application/x-progression-resize', JSON.stringify({
@@ -3161,7 +3292,7 @@ function App() {
               <article className="progression-event-editor">
                 <div className="chord-row-copy">
                   <div className="chord-row-title">
-                    <h3>{selectedProgressionChord.name}</h3>
+                    <h3>{chordLabel(selectedProgressionChord.name)}</h3>
                     <p>
                       Starts at bar {Math.floor(selectedProgressionEvent.startTick / PROGRESSION_TICKS_PER_BAR) + 1},
                       eighth {(selectedProgressionEvent.startTick % PROGRESSION_TICKS_PER_BAR) + 1} · {getDurationLabel(selectedProgressionEvent.durationTicks)}
@@ -3238,7 +3369,7 @@ function App() {
                     {selectedProgressionAlternativeScales.map((suggestion) => (
                       <article className="scale-suggestion" key={`progression-${selectedProgressionEvent.id}-${suggestion.id}`}>
                         <div>
-                          <h4>{suggestion.name}</h4>
+                          <h4>{chordLabel(suggestion.name)}</h4>
                           <p>{suggestion.usage}</p>
                         </div>
                       </article>
@@ -3261,22 +3392,22 @@ function App() {
               <div className="chord-row-copy">
                 <div className="chord-row-title">
                   <div className="chord-title-line">
-                    <h2>{selectedArrangementChord.name}</h2>
+                    <h2>{chordLabel(selectedArrangementChord.name)}</h2>
                     <button
                       className="inline-play-button"
                       type="button"
-                      aria-label={`Preview ${selectedArrangementChord.name}`}
-                      title={`Preview ${selectedArrangementChord.name}`}
+                      aria-label={`Preview ${chordLabel(selectedArrangementChord.name)}`}
+                      title={`Preview ${chordLabel(selectedArrangementChord.name)}`}
                       onClick={() => playChordPreview(selectedArrangementChord)}
                     >
                       <Play size={14} />
                     </button>
                   </div>
-                  <p>{selectedArrangementChord.numeral} · {selectedArrangementChord.summary}</p>
+                  <p>{musicLabel(selectedArrangementChord.numeral)} · {selectedArrangementChord.summary}</p>
                 </div>
 
                 <div className="chord-row-tags">
-                  <span className="mini-tag">Formula {selectedArrangementChord.formula}</span>
+                  <span className="mini-tag">Formula {musicLabel(selectedArrangementChord.formula)}</span>
                   <span className={`mini-tag dissonance-tag is-${selectedArrangementChord.dissonance.level.toLowerCase()}`}>
                     {selectedArrangementChord.dissonance.level} dissonance
                   </span>
@@ -3339,8 +3470,8 @@ function App() {
                       ))
                     ) : isCello ? (
                       <FretboardChart
-                        title={`${selectedArrangementChord.name} cello fingerings`}
-                        subtitle={selectedArrangementChord.formula}
+                        title={`${chordLabel(selectedArrangementChord.name)} cello fingerings`}
+                        subtitle={musicLabel(selectedArrangementChord.formula)}
                         frets={fullNeckFrets}
                         rows={getChordToneRows(selectedArrangementChord)}
                         compact
@@ -3348,24 +3479,24 @@ function App() {
                       />
                     ) : isRecorder ? (
                       <RecorderFingeringChart
-                        title={`${selectedArrangementChord.name} alto recorder fingerings`}
-                        subtitle={selectedArrangementChord.formula}
+                        title={`${chordLabel(selectedArrangementChord.name)} alto recorder fingerings`}
+                        subtitle={musicLabel(selectedArrangementChord.formula)}
                         items={getChordToneRecorderItems(selectedArrangementChord)}
                         compact
                         onPlayNote={playNotePreview}
                       />
                     ) : isClarinet ? (
                       <ClarinetFingeringChart
-                        title={`${selectedArrangementChord.name} clarinet fingerings`}
-                        subtitle={selectedArrangementChord.formula}
+                        title={`${chordLabel(selectedArrangementChord.name)} clarinet fingerings`}
+                        subtitle={musicLabel(selectedArrangementChord.formula)}
                         items={getChordToneClarinetItems(selectedArrangementChord)}
                         compact
                         onPlayNote={playNotePreview}
                       />
                     ) : (
                       <PianoKeyboardChart
-                        title={`${selectedArrangementChord.name} keyboard tones`}
-                        subtitle={selectedArrangementChord.formula}
+                        title={`${chordLabel(selectedArrangementChord.name)} keyboard tones`}
+                        subtitle={musicLabel(selectedArrangementChord.formula)}
                         pitchClasses={Object.keys(CHORD_QUALITIES[selectedArrangementChord.quality]?.toneLabels ?? {}).map((interval) => (selectedArrangementChord.rootPitchClass + Number(interval)) % 12)}
                         rootPitchClass={selectedArrangementChord.rootPitchClass}
                         labelsByPitchClass={Object.fromEntries(Object.entries(CHORD_QUALITIES[selectedArrangementChord.quality]?.toneLabels ?? {}).map(([interval, label]) => [(selectedArrangementChord.rootPitchClass + Number(interval)) % 12, label]))}
@@ -3379,7 +3510,7 @@ function App() {
 
               {selectedAlternativeScaleSuggestions.length > 0 ? (
               <div className="scale-suggestions">
-                <h2>Alternative scales for {selectedArrangementChord.name}</h2>
+                <h2>Alternative scales for {chordLabel(selectedArrangementChord.name)}</h2>
 
                 <div className="scale-suggestion-list">
                   {selectedAlternativeScaleSuggestions.map((suggestion) => (
@@ -3388,7 +3519,7 @@ function App() {
                         <button
                           className="disclosure-icon-button"
                           type="button"
-                          aria-label={openScaleCharts.has(suggestion.id) ? `Hide ${suggestion.name} chart` : `Show ${suggestion.name} chart`}
+                          aria-label={openScaleCharts.has(suggestion.id) ? `Hide ${chordLabel(suggestion.name)} chart` : `Show ${chordLabel(suggestion.name)} chart`}
                           aria-expanded={openScaleCharts.has(suggestion.id)}
                           onClick={() => {
                             setOpenScaleCharts((current) => {
@@ -3408,7 +3539,7 @@ function App() {
                         </button>
 
                         <div>
-                          <h4>{suggestion.name}</h4>
+                          <h4>{chordLabel(suggestion.name)}</h4>
                           <p>{suggestion.isRootScale ? `${suggestion.usage} ${suggestion.sound}` : suggestion.usage}</p>
                         </div>
 

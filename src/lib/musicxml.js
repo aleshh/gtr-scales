@@ -1,4 +1,5 @@
 import { CHORD_QUALITIES } from '../data/chords'
+import { formatMusicText } from './display'
 
 const STEP_PITCH_CLASSES = {
   C: 0,
@@ -357,7 +358,7 @@ export function buildScaleMusicXml({
     return noteXml(pitch, showLabels ? {
       duration: 1,
       type: 'eighth',
-      labels: [getPitchLabel(pitch), formulaLabel],
+      labels: [formatMusicText(getPitchLabel(pitch)), formatMusicText(formulaLabel)],
     } : undefined)
   })
   const measures = showLabels ? [notes] : []

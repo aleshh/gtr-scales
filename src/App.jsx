@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronDown, Gauge, Metronome, Music4, Pause, Play, Plus, Repeat, Shuffle, Square, Trash2, X } from 'lucide-react'
+import { ChevronDown, Gauge, Metronome, Music4, Pause, Play, Plus, Repeat, Shuffle, SlidersHorizontal, Square, Trash2, X } from 'lucide-react'
 import './App.css'
 import SheetMusicChart from './components/SheetMusicChart'
 import {
@@ -1672,6 +1672,7 @@ function App() {
   const [isProgressionLooping, setIsProgressionLooping] = useState(false)
   const [isProgressionPlaying, setIsProgressionPlaying] = useState(false)
   const [playheadTick, setPlayheadTick] = useState(null)
+  const [isHeaderControlsOpen, setIsHeaderControlsOpen] = useState(false)
   const controlPanelRef = useRef(null)
   const progressionPlaybackRef = useRef({
     audioContext: null,
@@ -2732,11 +2733,22 @@ function App() {
       ) : null}
 
       <header className="control-panel" ref={controlPanelRef}>
-        <div className="control-toolbar">
+        <div className={`control-toolbar${isHeaderControlsOpen ? ' is-controls-open' : ''}`}>
           <div className="nav-brand" aria-label="IntervalKit">
             <Music4 size={20} strokeWidth={2.3} aria-hidden="true" />
             <strong>IntervalKit</strong>
           </div>
+
+          <button
+            className="nav-controls-toggle"
+            type="button"
+            aria-expanded={isHeaderControlsOpen}
+            aria-label={isHeaderControlsOpen ? 'Hide controls' : 'Show controls'}
+            onClick={() => setIsHeaderControlsOpen((current) => !current)}
+          >
+            <SlidersHorizontal size={17} aria-hidden="true" />
+            <span>Controls</span>
+          </button>
 
           <div className="mode-instrument-group">
             <div className="mode-field">

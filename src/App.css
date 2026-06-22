@@ -384,6 +384,31 @@
   letter-spacing: 0;
 }
 
+.nav-controls-toggle {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 6px 9px;
+  border: 1px solid var(--panel-line);
+  border-radius: 8px;
+  background: rgba(248, 252, 247, 0.94);
+  color: var(--accent-deep);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.nav-controls-toggle svg {
+  display: block;
+}
+
+.nav-controls-toggle:focus-visible {
+  outline: 2px solid rgba(77, 139, 103, 0.66);
+  outline-offset: 2px;
+}
+
 .mode-instrument-group {
   display: flex;
   flex: 0 0 auto;
@@ -3318,6 +3343,31 @@
 
   .control-toolbar {
     padding-inline: 14px;
+  }
+
+  .nav-brand {
+    min-height: 34px;
+  }
+
+  .nav-controls-toggle {
+    display: inline-flex;
+    margin-left: auto;
+  }
+
+  .control-toolbar:not(.is-controls-open) > .mode-instrument-group,
+  .control-toolbar:not(.is-controls-open) > .control-selectors,
+  .control-toolbar:not(.is-controls-open) > .tool-launcher {
+    display: none;
+  }
+
+  .control-toolbar.is-controls-open > .mode-instrument-group,
+  .control-toolbar.is-controls-open > .control-selectors {
+    display: flex;
+  }
+
+  .control-toolbar.is-controls-open > .tool-launcher {
+    display: grid;
+    margin-left: 0;
   }
 
   .mode-instrument-group,

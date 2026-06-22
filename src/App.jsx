@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { Gauge, Metronome, Music4, Pause, Play, Plus, Repeat, Shuffle, Square, Trash2, X } from 'lucide-react'
+import { ChevronDown, Gauge, Metronome, Music4, Pause, Play, Plus, Repeat, Shuffle, Square, Trash2, X } from 'lucide-react'
 import './App.css'
 import SheetMusicChart from './components/SheetMusicChart'
 import {
@@ -46,6 +46,7 @@ import {
   getChordKeyFifths,
   getChordStaffMidiNotes,
   getScaleKeyFifths,
+  getScaleRootForKeyFifths,
 } from './lib/musicxml'
 
 const DEFAULT_QUERY_STATE = {
@@ -160,6 +161,13 @@ const CHORD_PALETTE_SORT_OPTIONS = [
     label: 'Contrast path',
     help: 'Arrange each chord far from the previous one, favoring fewer shared tones and bigger harmonic jumps.',
   },
+]
+const SCALE_FAMILY_ORDER = [
+  'Common modes',
+  'Harmonic and melodic colors',
+  'Bebop scales',
+  'Exotic colors',
+  'Symmetric scales',
 ]
 const FIFTH_ORDER = [0, 7, 2, 9, 4, 11, 6, 1, 8, 3, 10, 5]
 const DISSONANCE_ORDER = {
@@ -758,6 +766,216 @@ function getHeaderSelectStyle(label, {
   return {
     '--select-width': `${Math.max(minWidth, Math.min(maxWidth, contentWidth))}px`,
   }
+}
+
+function TonalCenterPicker({ rootLabel, scaleId, instrument, onSelect }) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [previewRootLabel, setPreviewRootLabel] = useState(rootLabel)
+  const [previewScaleId, setPreviewScaleId] = useState(scaleId)
+  const [isKeySignatureLocked, setIsKeySignatureLocked] = useState(false)
+  const [lockedKeyFifths, setLockedKeyFifths] = useState(null)
+  const pickerRef = useRef(null)
+  const previewRoot = ROOT_OPTIONS.find((option) => option.label === previewRootLabel) ?? ROOT_OPTIONS[0]
+  const selectedScale = SCALE_LIBRARY.find((item) => item.id === previewScaleId) ?? SCALE_LIBRARY[0]
+  const previewKeyFifths = getScaleKeyFifths(previewRoot.pitchClass, selectedScale.id)
+  const canLockKeySignature = getScaleRootForKeyFifths(previewKeyFifths, selectedScale.id) !== null
+  const previewMusicXml = buildScaleMusicXml({
+    rootLabel: previewRoot.label,
+    rootPitchClass: previewRoot.pitchClass,
+    scale: selectedScale,
+    instrument,
+    keyFifths: previewKeyFifths,
+    showLabels: true,
+  })
+  const scalesByFamily = groupItemsByFamily(SCALE_LIBRARY)
+  const scaleFamilyEntries = Object.entries(scalesByFamily)
+    .sort(([leftFamily], [rightFamily]) => (
+      SCALE_FAMILY_ORDER.indexOf(leftFamily) - SCALE_FAMILY_ORDER.indexOf(rightFamily)
+    ))
+  const keySignatureLabel = lockedKeyFifths === 0
+    ? 'No sharps or flats'
+    : `${Math.abs(lockedKeyFifths)} ${lockedKeyFifths > 0 ? 'sharp' : 'flat'}${Math.abs(lockedKeyFifths) === 1 ? '' : 's'}`
+
+  useEffect(() => {
+    if (!isOpen) return undefined
+
+    function closeOnOutsidePress(event) {
+      if (!pickerRef.current?.contains(event.target)) {
+        setIsOpen(false)
+      }
+    }
+
+    function closeOnEscape(event) {
+      if (event.key === 'Escape') {
+        setIsOpen(false)
+      }
+    }
+
+    document.addEventListener('pointerdown', closeOnOutsidePress)
+    document.addEventListener('keydown', closeOnEscape)
+
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsidePress)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [isOpen])
+
+  function openPicker() {
+    setPreviewRootLabel(rootLabel)
+    setPreviewScaleId(scaleId)
+    setIsKeySignatureLocked(false)
+    setLockedKeyFifths(null)
+    setIsOpen(true)
+  }
+
+  function toggleKeySignatureLock() {
+    if (isKeySignatureLocked) {
+      setIsKeySignatureLocked(false)
+      setLockedKeyFifths(null)
+      return
+    }
+
+    setLockedKeyFifths(previewKeyFifths)
+    setIsKeySignatureLocked(true)
+  }
+
+  function selectScale(nextScaleId) {
+    if (isKeySignatureLocked) {
+      const nextRootPitchClass = getScaleRootForKeyFifths(lockedKeyFifths, nextScaleId)
+      const nextRoot = ROOT_OPTIONS.find((option) => option.pitchClass === nextRootPitchClass)
+
+      if (!nextRoot) return
+
+      setPreviewRootLabel(nextRoot.label)
+    }
+
+    setPreviewScaleId(nextScaleId)
+  }
+
+  return (
+    <div className="tonal-center-picker" ref={pickerRef}>
+      <span className="tonal-center-label">Tonal center</span>
+      <button
+        className="tonal-center-trigger"
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={isOpen}
+        onClick={() => (isOpen ? setIsOpen(false) : openPicker())}
+      >
+        <span>{musicLabel(rootLabel)} {selectedScale.name}</span>
+        <ChevronDown size={16} aria-hidden="true" />
+      </button>
+
+      {isOpen ? (
+        <section className="tonal-center-panel" role="dialog" aria-label="Choose tonal center">
+          <div className="tonal-center-panel-heading">
+            <div>
+              <span>Choose a tonic and scale</span>
+              <strong>{musicLabel(previewRoot.label)} {selectedScale.name}</strong>
+            </div>
+            <div className="tonal-center-panel-actions">
+              <button
+                type="button"
+                className="tonal-center-close"
+                aria-label="Close tonal center picker"
+                onClick={() => setIsOpen(false)}
+              >
+                <X size={15} />
+              </button>
+            </div>
+          </div>
+
+          <div className="tonal-center-panel-content">
+            <div className="tonic-list" role="listbox" aria-label="Tonic">
+              {ROOT_OPTIONS.map((option) => (
+                <button
+                  type="button"
+                  key={option.label}
+                  role="option"
+                  aria-selected={previewRootLabel === option.label}
+                  className={previewRootLabel === option.label ? 'is-active' : ''}
+                  disabled={isKeySignatureLocked}
+                  onClick={() => setPreviewRootLabel(option.label)}
+                >
+                  {musicLabel(option.label)}
+                </button>
+              ))}
+            </div>
+
+            <div className="tonal-center-right-column">
+              <div className="tonal-scale-list">
+                {scaleFamilyEntries.map(([family, scales]) => (
+                  <section className="tonal-scale-family" key={family}>
+                    <h3>{family}</h3>
+                    <div>
+                      {scales.map((item) => {
+                        const isSelected = item.id === previewScaleId
+                        const isSupportedByKeySignature = !isKeySignatureLocked
+                          || getScaleRootForKeyFifths(lockedKeyFifths, item.id) !== null
+
+                        return (
+                          <button
+                            type="button"
+                            key={item.id}
+                            className={isSelected ? 'is-active' : ''}
+                            disabled={!isSupportedByKeySignature}
+                            onClick={() => selectScale(item.id)}
+                          >
+                            {item.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </section>
+                ))}
+              </div>
+
+              <aside className="tonal-center-preview">
+                <div>
+                  <span>How it sounds</span>
+                  <strong>{musicLabel(previewRoot.label)} {selectedScale.name}</strong>
+                  <p>{selectedScale.sound}</p>
+                </div>
+                <SheetMusicChart musicXml={previewMusicXml} embedded bare />
+              </aside>
+            </div>
+          </div>
+
+          <div className="tonal-center-panel-footer">
+            <div className="key-signature-setting">
+              <button
+                type="button"
+                className="key-signature-switch"
+                role="switch"
+                aria-checked={isKeySignatureLocked}
+                disabled={!isKeySignatureLocked && !canLockKeySignature}
+                title={!isKeySignatureLocked && !canLockKeySignature ? 'This scale has no conventional key signature to preserve.' : undefined}
+                onClick={toggleKeySignatureLock}
+              >
+                <span className="key-signature-switch-track" aria-hidden="true"><span></span></span>
+                <span>Keep key signature</span>
+              </button>
+              <p>
+                {isKeySignatureLocked
+                  ? `Tonic shifts with each scale to preserve ${keySignatureLabel}.`
+                  : 'Allow the tonic and staff signature to change independently.'}
+              </p>
+            </div>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={() => {
+                onSelect(previewRoot.label, selectedScale.id)
+                setIsOpen(false)
+              }}
+            >
+              Apply
+            </button>
+          </div>
+        </section>
+      ) : null}
+    </div>
+  )
 }
 
 function FretboardChart({
@@ -1465,7 +1683,6 @@ function App() {
     totalTicks: 0,
   })
 
-  const groupedScales = groupItemsByFamily(SCALE_LIBRARY)
   const groupedFlavors = groupItemsByFamily(CHORD_FLAVOR_LIBRARY)
   const root = ROOT_OPTIONS.find((option) => option.label === rootLabel) ?? ROOT_OPTIONS[0]
   const scale = SCALE_LIBRARY.find((item) => item.id === scaleId) ?? SCALE_LIBRARY[0]
@@ -2572,60 +2789,50 @@ function App() {
           </div>
 
           <div className="control-selectors">
-            <label className="control-field root-field">
-              <span>Root note</span>
-              <select
-                value={root.label}
-                style={getHeaderSelectStyle(root.label, {
-                  min: 1,
-                  max: 2,
-                  characterWidth: 10,
-                  chromeWidth: 48,
-                })}
-                onChange={(event) => {
-                  updateSettings('root', () => {
-                    setRootLabel(event.target.value)
-                    setCustomChordRootLabel(event.target.value)
+            {mode === 'scales' || mode === 'harmony' || mode === 'compose' ? (
+              <TonalCenterPicker
+                rootLabel={root.label}
+                scaleId={scale.id}
+                instrument={instrument}
+                onSelect={(nextRootLabel, nextScaleId) => {
+                  updateSettings(['root', 'scale'], () => {
+                    setRootLabel(nextRootLabel)
+                    setScaleId(nextScaleId)
+                    setCustomChordRootLabel(nextRootLabel)
                     clearProgression()
                   })
                 }}
-              >
-                {ROOT_OPTIONS.map((option) => (
-                  <option key={option.label} value={option.label}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            {mode === 'scales' || mode === 'harmony' || mode === 'compose' ? (
-              <label className="control-field scale-field">
-                <span>Mode / scale</span>
-                <select
-                  value={scale.id}
-                  style={getHeaderSelectStyle(scale.name, { min: 9, max: 27 })}
-                  onChange={(event) => {
-                    updateSettings('scale', () => {
-                      setScaleId(event.target.value)
-                      clearProgression()
-                    })
-                  }}
-                >
-                  {Object.entries(groupedScales).map(([family, familyScales]) => (
-                    <optgroup key={family} label={family}>
-                      {familyScales.map((item) => (
-                        <option key={item.id} value={item.id}>
-                          {item.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  ))}
-                </select>
-              </label>
+              />
             ) : null}
 
             {mode === 'chords' ? (
               <>
+                <label className="control-field root-field">
+                  <span>Root note</span>
+                  <select
+                    value={root.label}
+                    style={getHeaderSelectStyle(root.label, {
+                      min: 1,
+                      max: 2,
+                      characterWidth: 10,
+                      chromeWidth: 48,
+                    })}
+                    onChange={(event) => {
+                      updateSettings('root', () => {
+                        setRootLabel(event.target.value)
+                        setCustomChordRootLabel(event.target.value)
+                        clearProgression()
+                      })
+                    }}
+                  >
+                    {ROOT_OPTIONS.map((option) => (
+                      <option key={option.label} value={option.label}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
                 <label className="control-field flavor-field">
                   <span>Flavor</span>
                   <select

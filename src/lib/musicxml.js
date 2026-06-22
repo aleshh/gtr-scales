@@ -323,6 +323,19 @@ export function getScaleKeyFifths(rootPitchClass, scaleId) {
     : MAJOR_KEY_FIFTHS_BY_PITCH_CLASS[keyPitchClass]
 }
 
+export function getScaleRootForKeyFifths(keyFifths, scaleId) {
+  const [keyType, offset] = SCALE_KEY_CONTEXTS[scaleId] ?? []
+
+  if (!keyType || !Number.isFinite(keyFifths)) return null
+
+  const keyPitchClass = (keyType === 'minor'
+    ? MINOR_KEY_FIFTHS_BY_PITCH_CLASS
+    : MAJOR_KEY_FIFTHS_BY_PITCH_CLASS
+  ).indexOf(keyFifths)
+
+  return keyPitchClass < 0 ? null : (keyPitchClass - offset + 12) % 12
+}
+
 function getPitchLabel({ step, alter }) {
   if (alter > 0) return `${step}${'#'.repeat(alter)}`
   if (alter < 0) return `${step}${'b'.repeat(Math.abs(alter))}`

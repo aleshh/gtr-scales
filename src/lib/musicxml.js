@@ -267,6 +267,7 @@ function scoreXml({
   measures,
   keyFifths = null,
   divisions = 1,
+  timeSignatureXml = '<time><beats>4</beats><beat-type>4</beat-type></time>',
 }) {
   const keySignature = Number.isFinite(keyFifths)
     ? `<key><fifths>${keyFifths}</fifths></key>`
@@ -281,7 +282,7 @@ function scoreXml({
   <part id="P1">
     ${measures.map((measure, index) => `
     <measure number="${index + 1}">
-      ${index === 0 ? `<attributes><divisions>${divisions}</divisions>${keySignature}<time><beats>4</beats><beat-type>4</beat-type></time>${getClef(instrumentId)}</attributes>` : ''}
+      ${index === 0 ? `<attributes><divisions>${divisions}</divisions>${keySignature}${timeSignatureXml}${getClef(instrumentId)}</attributes>` : ''}
       ${measure.join('')}
     </measure>`).join('')}
   </part>
@@ -369,8 +370,8 @@ export function buildScaleMusicXml({
     )
 
     return noteXml(pitch, showLabels ? {
-      duration: 1,
-      type: 'eighth',
+      duration: 4,
+      type: 'whole',
       labels: [formatMusicText(getPitchLabel(pitch)), formatMusicText(formulaLabel)],
     } : undefined)
   })
@@ -394,7 +395,10 @@ export function buildScaleMusicXml({
     partName: getInstrumentName(instrument),
     measures,
     keyFifths,
-    divisions: showLabels ? 2 : 1,
+    divisions: 1,
+    timeSignatureXml: showLabels
+      ? '<time print-object="no"><beats>8</beats><beat-type>1</beat-type></time>'
+      : undefined,
   })
 }
 

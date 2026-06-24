@@ -17,12 +17,20 @@ if [ ! -d "dist" ]; then
   exit 1
 fi
 
-if ! command -v lftp >/dev/null 2>&1; then
+LFTP_BIN="${LFTP_BIN:-$(command -v lftp || true)}"
+
+if [ -z "${LFTP_BIN}" ]; then
   echo "lftp is required. Install with: brew install lftp"
   exit 1
 fi
 
-lftp -u "${FTP_USER}","${FTP_PASS}" "sftp://${FTP_HOST}" <<EOF
+if ! "${LFTP_BIN}" --version >/dev/null 2>&1; then
+  echo "lftp could not execute: ${LFTP_BIN}" >&2
+  echo "Install a native lftp binary for this machine, or set LFTP_BIN to its path." >&2
+  exit 1
+fi
+
+"${LFTP_BIN}" -u "${FTP_USER}","${FTP_PASS}" "sftp://${FTP_HOST}" <<EOF
 set sftp:auto-confirm yes
 mirror -R --delete --verbose dist "${FTP_REMOTE_DIR}"
 quit

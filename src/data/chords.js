@@ -556,6 +556,10 @@ const CHORD_FLAVOR_LIBRARY = [
 ]
 
 const CHORD_VOICING_TEMPLATES = [
+  // C and G CAGED forms include strings below the root fret. `null` mutes a
+  // string; negative values in `relativeFrets` are valid fretted offsets.
+  { id: 'maj-c', quality: 'maj', label: 'C shape', anchorString: 5, relativeFrets: [null, 0, -1, -3, -2, -3], tags: ['open', 'barre'], priority: 2 },
+  { id: 'maj-g', quality: 'maj', label: 'G shape', anchorString: 6, relativeFrets: [0, -1, -3, -3, -3, 0], tags: ['open', 'barre'], priority: 3 },
   { id: 'maj-e', quality: 'maj', label: 'Low E shape', anchorString: 6, frets: [0, 2, 2, 1, 0, 0], tags: ['open', 'barre'], priority: 1 },
   { id: 'maj-a', quality: 'maj', label: 'A-string shape', anchorString: 5, frets: [-1, 0, 2, 2, 2, 0], tags: ['barre'], priority: 2 },
   { id: 'maj-d', quality: 'maj', label: 'Upper D shape', anchorString: 4, frets: [-1, -1, 0, 2, 3, 2], tags: ['compact'], priority: 3 },
@@ -579,6 +583,8 @@ const CHORD_VOICING_TEMPLATES = [
 
   { id: 'six-e', quality: 'six', label: 'Low E 6 shape', anchorString: 6, frets: [0, 2, 2, 1, 2, 0], tags: ['open', 'barre'], priority: 1 },
   { id: 'six-a', quality: 'six', label: 'A-string 6 shape', anchorString: 5, frets: [-1, 0, 2, 2, 2, 2], tags: ['barre'], priority: 2 },
+  { id: 'six-c', quality: 'six', label: 'C 6 shape', anchorString: 5, relativeFrets: [null, 0, -1, -1, -2, -3], tags: ['open', 'barre'], priority: 3 },
+  { id: 'six-g', quality: 'six', label: 'G 6 shape', anchorString: 6, relativeFrets: [0, -1, -3, -3, -3, -3], tags: ['open', 'barre'], priority: 4 },
   { id: 'six-d', quality: 'six', label: 'Upper 6 shape', anchorString: 4, frets: [-1, -1, 0, 2, 0, 2], tags: ['compact', 'jazz'], priority: 3 },
 
   { id: 'min6-e', quality: 'min6', label: 'Low E m6 shape', anchorString: 6, frets: [0, 2, 2, 0, 2, 0], tags: ['open', 'barre'], priority: 1 },
@@ -587,11 +593,15 @@ const CHORD_VOICING_TEMPLATES = [
 
   { id: 'dom7-e', quality: 'dominant7', label: 'Low E7 shape', anchorString: 6, frets: [0, 2, 0, 1, 0, 0], tags: ['open', 'barre'], priority: 1 },
   { id: 'dom7-a', quality: 'dominant7', label: 'A-string 7 shape', anchorString: 5, frets: [-1, 0, 2, 0, 2, 0], tags: ['barre'], priority: 2 },
+  { id: 'dom7-c', quality: 'dominant7', label: 'C7 shape', anchorString: 5, relativeFrets: [null, 0, -1, 0, -2, -3], tags: ['open', 'barre'], priority: 3 },
+  { id: 'dom7-g', quality: 'dominant7', label: 'G7 shape', anchorString: 6, relativeFrets: [0, -1, -3, -3, -3, -2], tags: ['open', 'barre'], priority: 4 },
   { id: 'dom7-d', quality: 'dominant7', label: 'Upper 7 shape', anchorString: 4, frets: [-1, -1, 0, 2, 1, 2], tags: ['compact'], priority: 3 },
   { id: 'dom7-compact', quality: 'dominant7', label: 'Compact 7 shape', anchorString: 5, frets: [-1, 0, 2, 0, 2, -1], tags: ['compact', 'jazz'], priority: 4 },
 
   { id: 'maj7-e', quality: 'major7', label: 'Low Emaj7 shape', anchorString: 6, frets: [0, 2, 1, 1, 0, 0], tags: ['open', 'barre'], priority: 1 },
   { id: 'maj7-a', quality: 'major7', label: 'A-string maj7 shape', anchorString: 5, frets: [-1, 0, 2, 1, 2, 0], tags: ['barre'], priority: 2 },
+  { id: 'maj7-c', quality: 'major7', label: 'Cmaj7 shape', anchorString: 5, relativeFrets: [null, 0, -1, -3, -3, -3], tags: ['open', 'barre'], priority: 3 },
+  { id: 'maj7-g', quality: 'major7', label: 'Gmaj7 shape', anchorString: 6, relativeFrets: [0, -1, -3, -3, -3, -1], tags: ['open', 'barre'], priority: 4 },
   { id: 'maj7-d', quality: 'major7', label: 'Upper maj7 shape', anchorString: 4, frets: [-1, -1, 0, 2, 2, 2], tags: ['compact'], priority: 3 },
   { id: 'maj7-compact', quality: 'major7', label: 'Compact maj7 shape', anchorString: 5, frets: [-1, 0, 2, 1, 2, -1], tags: ['compact', 'jazz'], priority: 4 },
 

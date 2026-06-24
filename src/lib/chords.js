@@ -112,13 +112,15 @@ function getRootFrets(anchorString, rootPitchClass, maxFret = 12) {
 }
 
 function buildAbsoluteFrets(template, rootFret) {
-  return template.frets.map((relativeFret) => {
-    if (relativeFret < 0) {
-      return -1
-    }
+  if (template.relativeFrets) {
+    return template.relativeFrets.map((relativeFret) => (
+      relativeFret === null ? -1 : rootFret + relativeFret
+    ))
+  }
 
-    return rootFret + relativeFret
-  })
+  return template.frets.map((relativeFret) => (
+    relativeFret < 0 ? -1 : rootFret + relativeFret
+  ))
 }
 
 function getFrettedRange(frets) {
@@ -267,12 +269,24 @@ export function generateVoicings(rootPitchClass, qualityId) {
   const candidates = []
 
   templates.forEach((template) => {
+    if (template.rootPitchClass !== undefined) {
+      if (template.rootPitchClass === rootPitchClass) {
+        candidates.push({
+          template,
+          frets: template.frets,
+          rank: getVoicingRank(template, template.frets),
+        })
+      }
+
+      return
+    }
+
     const rootFrets = getRootFrets(template.anchorString, rootPitchClass)
 
     rootFrets.forEach((rootFret) => {
       const frets = buildAbsoluteFrets(template, rootFret)
 
-      if (!isPlayableTemplateVoicing(frets)) {
+      if (frets.some((fret) => fret < -1) || !isPlayableTemplateVoicing(frets)) {
         return
       }
 

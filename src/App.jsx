@@ -1741,7 +1741,7 @@ function App() {
   const previewChord = composeChordPalette.find((row) => row.id === progressionPreview?.chordId) ?? null
   const emptyProgressionTicks = getProgressionGaps(progressionEvents, totalProgressionTicks)
     .reduce((sum, gap) => sum + gap.durationTicks, 0)
-  const primaryArrangementScaleId = `primary-${root.label}-${scale.id}`
+  const primaryArrangementScaleId = 'primary-scale'
   const selectedTheoryItem = mode === 'scales'
     ? scale
     : mode === 'chords'

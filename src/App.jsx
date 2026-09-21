@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { ChevronDown, Gauge, Metronome, Music4, Pause, Play, Plus, Repeat, Shuffle, SlidersHorizontal, Square, Trash2, X } from 'lucide-react'
+import { AudioLines, ChevronDown, Gauge, Metronome, Music4, Pause, Play, Plus, Repeat, Shuffle, SlidersHorizontal, Square, Trash2, X } from 'lucide-react'
 import './App.css'
 import SheetMusicChart from './components/SheetMusicChart'
 import {
@@ -224,6 +224,16 @@ const CUSTOM_CHORD_QUALITY_OPTIONS = [
   'dominant7Sus4',
 ]
 const CHROMATIC_TUNER_NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+const DRONE_NOTES = ['C', 'C#', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B']
+const DEFAULT_DRONE_HARMONICS = [22, 12, 8, 5, 3, 2]
+const DRONE_HARMONIC_LABELS = [
+  'Octave',
+  'Octave + fifth',
+  'Two octaves',
+  'Major third',
+  'Perfect fifth',
+  'Low seventh',
+]
 const TUNER_MIC_CONSTRAINTS = {
   audio: {
     autoGainControl: false,
@@ -1356,6 +1366,7 @@ function FloatingToolWindow({
   title,
   defaultPosition,
   onClose,
+  className = '',
   children,
 }) {
   const [position, setPosition] = useState(defaultPosition)
@@ -1396,7 +1407,7 @@ function FloatingToolWindow({
 
   return (
     <section
-      className="floating-tool-window"
+      className={`floating-tool-window${className ? ` ${className}` : ''}`}
       style={{ transform: `translate(${position.x}px, ${position.y}px)` }}
     >
       <div className="floating-tool-header" onPointerDown={startDrag}>
@@ -1640,6 +1651,209 @@ function TunerTool() {
   )
 }
 
+function DroneTool() {
+  const [noteIndex, setNoteIndex] = useState(4)
+  const [octaveOffset, setOctaveOffset] = useState(0)
+  const [isRunning, setIsRunning] = useState(false)
+  const [volume, setVolume] = useState(42)
+  const [harmonicAmount, setHarmonicAmount] = useState(100)
+  const [harmonics, setHarmonics] = useState(DEFAULT_DRONE_HARMONICS)
+  const audioRef = useRef(null)
+
+  const midi = 60 + noteIndex + (octaveOffset * 12)
+  const frequency = 440 * (2 ** ((midi - 69) / 12))
+  const octave = Math.floor(midi / 12) - 1
+
+  const stop = useCallback(() => {
+    const audio = audioRef.current
+    if (!audio) {
+      setIsRunning(false)
+      return
+    }
+
+    const now = audio.audioContext.currentTime
+    audio.master.gain.cancelScheduledValues(now)
+    audio.master.gain.setTargetAtTime(0.0001, now, 0.025)
+    audio.oscillators.forEach((oscillator) => oscillator.stop(now + 0.16))
+    audioRef.current = null
+    window.setTimeout(() => {
+      audio.nodes.forEach((node) => node.disconnect())
+      audio.audioContext.close()
+    }, 180)
+    setIsRunning(false)
+  }, [])
+
+  const start = useCallback(async () => {
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext
+    if (!AudioContextClass || audioRef.current) return
+
+    const audioContext = new AudioContextClass()
+    await audioContext.resume()
+    const master = audioContext.createGain()
+    const oscillators = []
+    const gains = []
+    const nodes = [master]
+    const now = audioContext.currentTime
+
+    master.gain.setValueAtTime(0.0001, now)
+    master.gain.exponentialRampToValueAtTime(Math.max(0.0001, (volume / 100) * 0.24), now + 0.12)
+    master.connect(audioContext.destination)
+
+    for (let harmonic = 1; harmonic <= 7; harmonic += 1) {
+      const oscillator = audioContext.createOscillator()
+      const gain = audioContext.createGain()
+      oscillator.type = 'sine'
+      oscillator.frequency.setValueAtTime(frequency * harmonic, now)
+      gain.gain.setValueAtTime(
+        harmonic === 1
+          ? 0.78
+          : (harmonics[harmonic - 2] / 100) * (harmonicAmount / 100),
+        now,
+      )
+      oscillator.connect(gain)
+      gain.connect(master)
+      oscillator.start(now)
+      oscillators.push(oscillator)
+      gains.push(gain)
+      nodes.push(oscillator, gain)
+    }
+
+    audioRef.current = { audioContext, master, oscillators, gains, nodes }
+    setIsRunning(true)
+  }, [frequency, harmonicAmount, harmonics, volume])
+
+  useEffect(() => {
+    const audio = audioRef.current
+    if (!audio) return
+
+    const now = audio.audioContext.currentTime
+    audio.master.gain.setTargetAtTime(Math.max(0.0001, (volume / 100) * 0.24), now, 0.025)
+    audio.oscillators.forEach((oscillator, index) => {
+      oscillator.frequency.setTargetAtTime(frequency * (index + 1), now, 0.025)
+    })
+    audio.gains.slice(1).forEach((gain, index) => {
+      gain.gain.setTargetAtTime((harmonics[index] / 100) * (harmonicAmount / 100), now, 0.025)
+    })
+  }, [frequency, harmonicAmount, harmonics, volume])
+
+  useEffect(() => () => {
+    const audio = audioRef.current
+    audio?.oscillators.forEach((oscillator) => oscillator.stop())
+    audio?.audioContext.close()
+    audioRef.current = null
+  }, [])
+
+  function updateHarmonic(index, value) {
+    setHarmonics((current) => current.map((amount, itemIndex) => (
+      itemIndex === index ? value : amount
+    )))
+  }
+
+  return (
+    <div className="drone-tool">
+      <div className="drone-octave" aria-label="Octave">
+        <span>Octave</span>
+        {[-1, 0, 1].map((offset) => (
+          <button
+            className={octaveOffset === offset ? 'is-active' : ''}
+            key={offset}
+            type="button"
+            aria-pressed={octaveOffset === offset}
+            onClick={() => setOctaveOffset(offset)}
+          >
+            {offset > 0 ? `+${offset}` : offset}
+          </button>
+        ))}
+      </div>
+
+      <div className="drone-pitch-grid" aria-label="Drone pitch">
+        {DRONE_NOTES.map((note, index) => {
+          const noteMidi = 60 + index + (octaveOffset * 12)
+          const noteFrequency = 440 * (2 ** ((noteMidi - 69) / 12))
+
+          return (
+            <button
+              className={noteIndex === index ? 'is-active' : ''}
+              key={note}
+              type="button"
+              aria-pressed={noteIndex === index}
+              onClick={() => setNoteIndex(index)}
+            >
+              <strong>{note}</strong>
+              <span>{noteFrequency.toFixed(1)}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <button
+        className={`drone-play-button${isRunning ? ' is-running' : ''}`}
+        type="button"
+        onClick={isRunning ? stop : start}
+      >
+        {isRunning ? <Square size={15} fill="currentColor" aria-hidden="true" /> : <Play size={17} fill="currentColor" aria-hidden="true" />}
+        {isRunning ? 'Stop drone' : `Start ${DRONE_NOTES[noteIndex]}${octave}`}
+      </button>
+
+      <label className="drone-slider drone-master-slider">
+        <span>Volume <output>{volume}%</output></span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          value={volume}
+          onChange={(event) => setVolume(Number(event.target.value))}
+        />
+      </label>
+
+      <details className="drone-harmonics">
+        <summary>
+          <span>Upper harmonics</span>
+          <span>{harmonicAmount}% mix</span>
+        </summary>
+        <div className="drone-harmonic-controls">
+          <p className="drone-harmonics-help">Overtones above the selected note</p>
+          {harmonics.map((amount, index) => (
+            <label className="drone-slider" key={index + 2}>
+              <span>
+                H{index + 2} · {DRONE_HARMONIC_LABELS[index]}
+                <output>{amount}%</output>
+              </span>
+              <input
+                type="range"
+                min="0"
+                max="40"
+                value={amount}
+                onChange={(event) => updateHarmonic(index, Number(event.target.value))}
+              />
+            </label>
+          ))}
+          <label className="drone-slider drone-harmonic-amount">
+            <span>Harmonic mix <output>{harmonicAmount}%</output></span>
+            <input
+              type="range"
+              min="0"
+              max="100"
+              value={harmonicAmount}
+              onChange={(event) => setHarmonicAmount(Number(event.target.value))}
+            />
+          </label>
+          <button
+            className="drone-reset-button"
+            type="button"
+            onClick={() => {
+              setHarmonics(DEFAULT_DRONE_HARMONICS)
+              setHarmonicAmount(100)
+            }}
+          >
+            Reset harmonics
+          </button>
+        </div>
+      </details>
+    </div>
+  )
+}
+
 function App() {
   const touchedQueryParamsRef = useRef(getQuerySettingKeys(window.location.search))
   const [mode, setMode] = useState(() => readQueryState(window.location.search).mode)
@@ -1663,7 +1877,7 @@ function App() {
   const [customChordRootLabel, setCustomChordRootLabel] = useState(() => readQueryState(window.location.search).root)
   const [customChordQualityId, setCustomChordQualityId] = useState('maj')
   const [chordPaletteSort, setChordPaletteSort] = useState('root')
-  const [openTools, setOpenTools] = useState({ metronome: false, tuner: false })
+  const [openTools, setOpenTools] = useState({ metronome: false, tuner: false, drone: false })
   const [progressionTempo, setProgressionTempo] = useState(DEFAULT_PROGRESSION_TEMPO)
   const [progressionClickMode, setProgressionClickMode] = useState('beat')
   const [playbackVoice, setPlaybackVoice] = useState(DEFAULT_PLAYBACK_VOICE)
@@ -2732,6 +2946,17 @@ function App() {
         </FloatingToolWindow>
       ) : null}
 
+      {openTools.drone ? (
+        <FloatingToolWindow
+          title="Drone"
+          className="drone-tool-window"
+          defaultPosition={{ x: Math.max(8, window.innerWidth - 310), y: 74 }}
+          onClose={() => setOpenTools((current) => ({ ...current, drone: false }))}
+        >
+          <DroneTool />
+        </FloatingToolWindow>
+      ) : null}
+
       <header className="control-panel" ref={controlPanelRef}>
         <div className={`control-toolbar${isHeaderControlsOpen ? ' is-controls-open' : ''}`}>
           <div className="nav-brand" aria-label="IntervalKit">
@@ -2926,6 +3151,16 @@ function App() {
                 onClick={() => setOpenTools((current) => ({ ...current, tuner: !current.tuner }))}
               >
                 <Gauge size={19} strokeWidth={2.2} aria-hidden="true" />
+              </button>
+              <button
+                className="tool-icon-button is-drone"
+                type="button"
+                aria-label="Open drone generator"
+                aria-pressed={openTools.drone}
+                title="Drone"
+                onClick={() => setOpenTools((current) => ({ ...current, drone: !current.drone }))}
+              >
+                <AudioLines size={19} strokeWidth={2.2} aria-hidden="true" />
               </button>
             </div>
           </div>
